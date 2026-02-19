@@ -922,6 +922,17 @@ textarea::placeholder {
 .pivot-table .resistance { color: var(--accent-green); }
 .pivot-table .support { color: var(--accent-red); }
 .pivot-table .pivot { color: var(--accent-amber); font-weight: 700; }
+.pivot-table .current-price-row td {
+  background: rgba(6, 182, 212, 0.08);
+  border-top: 1px dashed var(--accent-cyan);
+  border-bottom: 1px dashed var(--accent-cyan);
+  color: var(--accent-cyan);
+  font-weight: 700;
+}
+.pivot-table .current-price-row .label-cell {
+  color: var(--accent-cyan);
+  font-weight: 600;
+}
 
 /* Pivot Timeframe Toggle */
 .pivot-toggle {
@@ -2172,6 +2183,10 @@ setInterval(updateMarketClock, 1000);
     elVol.textContent = fmtVol(d.volume);
     elMeta.textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     card.style.display = '';
+    // Re-render pivot table with updated price
+    if (typeof renderDashboard === 'function' && typeof allDays !== 'undefined' && allDays.length > 0) {
+      renderDashboard();
+    }
   }
 
   function parseResponse(json) {
@@ -3174,13 +3189,36 @@ function renderDashboard() {
     { label: 'Support 3 (S3)', value: s3, cls: 'support' },
   ];
 
-  const pivotBody = pivots.map(p => `
-    <tr>
+  // Get live price from sessionStorage (set by live price IIFE)
+  let livePrice = null;
+  try {
+    const lpData = JSON.parse(sessionStorage.getItem('livePrice_data'));
+    if (lpData && lpData.price) livePrice = lpData.price;
+  } catch(e) {}
+
+  // Build rows, inserting live price in sorted position
+  let pivotRows = pivots.map(p => ({
+    label: p.label, value: p.value, cls: p.cls, isLive: false
+  }));
+  if (livePrice != null) {
+    pivotRows.push({ label: '► Current Price', value: livePrice, cls: 'current-price', isLive: true });
+    pivotRows.sort((a, b) => b.value - a.value);
+  }
+
+  const pivotBody = pivotRows.map(p => {
+    if (p.isLive) {
+      return `<tr class="current-price-row">
+        <td class="label-cell">${p.label}</td>
+        <td>${fmt(p.value)}</td>
+        <td style="color: var(--accent-cyan)">${(p.value > pivot ? '+' : '') + fmt(p.value - pivot)}</td>
+      </tr>`;
+    }
+    return `<tr>
       <td class="label-cell">${p.label}</td>
       <td class="${p.cls}">${fmt(p.value)}</td>
       <td style="color: var(--text-muted)">${p.cls === 'pivot' ? '—' : (p.value > pivot ? '+' : '') + fmt(p.value - pivot)}</td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
   document.querySelector('#pivotTable tbody').innerHTML = pivotBody;
 
   // Range Comparison
