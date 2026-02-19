@@ -2030,11 +2030,7 @@ setInterval(updateMarketClock, 1000);
 // ── Economic Calendar ──
 (function econCalInit() {
   const ECON_API_DIRECT = 'https://nfs.faireconomy.media/ff_calendar_thisweek.json';
-  const ECON_API_PROXIES = [
-    'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://nfs.faireconomy.media/ff_calendar_thisweek.json'),
-    'https://corsproxy.io/?' + encodeURIComponent('https://nfs.faireconomy.media/ff_calendar_thisweek.json'),
-    'https://api.codetabs.com/v1/proxy/?quest=https://nfs.faireconomy.media/ff_calendar_thisweek.json'
-  ];
+  const ECON_API_WORKER = 'https://yahoo-proxy.lookforadrian.workers.dev/?url=' + encodeURIComponent(ECON_API_DIRECT);
   const CACHE_KEY = 'econCal_data';
   const CACHE_TS_KEY = 'econCal_ts';
   const CACHE_TTL = 30 * 60 * 1000; // 30 min
@@ -2115,18 +2111,15 @@ setInterval(updateMarketClock, 1000);
     showLoading();
     try {
       let data;
-      const urls = [ECON_API_DIRECT].concat(ECON_API_PROXIES);
-      for (const url of urls) {
-        try {
-          const res = await fetch(url);
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          const text = await res.text();
-          if (text.trim().charAt(0) !== '[') throw new Error('Not JSON array');
-          data = JSON.parse(text);
-          break;
-        } catch(e) { /* try next */ }
+      try {
+        const res = await fetch(ECON_API_DIRECT);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        data = await res.json();
+      } catch(e) {
+        const res = await fetch(ECON_API_WORKER);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        data = await res.json();
       }
-      if (!data) throw new Error('All sources failed');
       sessionStorage.setItem(CACHE_KEY, JSON.stringify(data));
       sessionStorage.setItem(CACHE_TS_KEY, String(Date.now()));
       render(data, false);
