@@ -867,6 +867,91 @@ textarea::placeholder {
   font-family: 'JetBrains Mono', monospace;
 }
 
+/* Analytics Card */
+.analytics-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px 28px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
+}
+.analytics-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple));
+}
+.analytics-card h3 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 16px;
+}
+.analytics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+@media (max-width: 768px) {
+  .analytics-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 480px) {
+  .analytics-grid { grid-template-columns: 1fr; }
+}
+.analytics-item .analytics-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 6px;
+}
+.analytics-item .analytics-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+.regime-badge, .quadrant-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+.regime-badge.low { background: rgba(100, 116, 139, 0.2); color: var(--text-muted); }
+.regime-badge.normal { background: rgba(148, 163, 184, 0.15); color: var(--text-secondary); }
+.regime-badge.high { background: rgba(245, 158, 11, 0.15); color: var(--accent-amber); }
+.regime-badge.extreme { background: rgba(239, 68, 68, 0.15); color: var(--accent-red); }
+.quadrant-badge.breakout { background: rgba(16, 185, 129, 0.15); color: var(--accent-green); }
+.quadrant-badge.low-participation { background: rgba(245, 158, 11, 0.15); color: var(--accent-amber); }
+.quadrant-badge.absorption { background: rgba(6, 182, 212, 0.15); color: var(--accent-cyan); }
+.quadrant-badge.quiet { background: rgba(100, 116, 139, 0.2); color: var(--text-muted); }
+.vol-pct-bar {
+  display: inline-block;
+  width: 60px;
+  height: 6px;
+  background: rgba(100, 116, 139, 0.2);
+  border-radius: 3px;
+  vertical-align: middle;
+  margin-left: 6px;
+  overflow: hidden;
+}
+.vol-pct-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--accent-cyan);
+}
+
 /* Pivot Point Table Section */
 .pivot-section {
   background: var(--bg-card);
@@ -1631,6 +1716,12 @@ MAR 26    6131.00    6172.50    6104.50    6131.50    +14.50    6131.50    15806
     <!-- Top metrics -->
     <div class="metrics-grid" id="metricsGrid">
       <!-- Filled by JS -->
+    </div>
+
+    <!-- Volume & Range Analytics -->
+    <div class="analytics-card" id="analyticsCard" style="display:none;">
+      <h3>Volume &amp; Range Analytics</h3>
+      <div class="analytics-grid" id="analyticsGrid"></div>
     </div>
 
     <!-- Pivot Points Table -->
@@ -3028,9 +3119,31 @@ function setPivotTimeframe(tf) {
   renderDashboard();
 }
 
+function computeSMA(arr, n) {
+  if (arr.length < n) return null;
+  let sum = 0;
+  for (let i = arr.length - n; i < arr.length; i++) sum += arr[i];
+  return sum / n;
+}
+
+function volRegimeLabel(ratio) {
+  if (ratio < 0.85) return { label: 'Low', cls: 'low' };
+  if (ratio < 1.15) return { label: 'Normal', cls: 'normal' };
+  if (ratio < 1.40) return { label: 'High', cls: 'high' };
+  return { label: 'Extreme', cls: 'extreme' };
+}
+
+function quadrantLabel(rangeRatio, volRatio) {
+  if (rangeRatio >= 1.0 && volRatio >= 1.0) return { label: 'Breakout / Trend Day', cls: 'breakout' };
+  if (rangeRatio >= 1.0 && volRatio < 1.0) return { label: 'Low Participation Move', cls: 'low-participation' };
+  if (rangeRatio < 1.0 && volRatio >= 1.0) return { label: 'Absorption / Rotation', cls: 'absorption' };
+  return { label: 'Quiet / Inside Day', cls: 'quiet' };
+}
+
 function renderDashboard() {
   if (allDays.length === 0) {
     document.getElementById('expectedRange').style.display = 'none';
+    document.getElementById('analyticsCard').style.display = 'none';
     document.getElementById('metricsGrid').innerHTML = `
       <div class="metric-card blue" style="grid-column: 1 / -1; text-align: center; padding: 48px 24px;">
         <div class="metric-label" style="font-size: 14px; letter-spacing: 0;">No settlement data loaded yet</div>
@@ -3177,6 +3290,57 @@ function renderDashboard() {
       <div class="metric-sub">${last5.length} day avg</div>
     </div>
   `;
+
+  // Volume & Range Analytics Card
+  const analyticsCard = document.getElementById('analyticsCard');
+  const analyticsGrid = document.getElementById('analyticsGrid');
+  if (allDays.length >= 20) {
+    const volumes = allDays.map(d => d.volume || 0);
+    const ranges = allDays.map(d => d.high - d.low);
+    const volSma20 = computeSMA(volumes, 20);
+    const rangeSma20 = computeSMA(ranges, 20);
+    const volRatio = volSma20 ? (latest.volume || 0) / volSma20 : null;
+    const rangeRatio = rangeSma20 ? prevRange / rangeSma20 : null;
+
+    // 60-session volume percentile
+    const recentVols = volumes.slice(-60);
+    const lowerCount = recentVols.filter(v => (latest.volume || 0) > v).length;
+    const volPercentile = Math.round((lowerCount / recentVols.length) * 100);
+
+    const regime = volRatio != null ? volRegimeLabel(volRatio) : null;
+    const quadrant = (rangeRatio != null && volRatio != null) ? quadrantLabel(rangeRatio, volRatio) : null;
+
+    analyticsGrid.innerHTML = `
+      <div class="analytics-item">
+        <div class="analytics-label">Volume Ratio</div>
+        <div class="analytics-value">${volRatio != null ? volRatio.toFixed(2) + '×' : '—'}</div>
+        ${regime ? `<span class="regime-badge ${regime.cls}">${regime.label}</span>` : ''}
+      </div>
+      <div class="analytics-item">
+        <div class="analytics-label">Vol Percentile (60d)</div>
+        <div class="analytics-value">${volPercentile}<span style="font-size:14px;font-weight:400;color:var(--text-muted)">th</span></div>
+        <span class="vol-pct-bar"><span class="vol-pct-bar-fill" style="width:${volPercentile}%"></span></span>
+      </div>
+      <div class="analytics-item">
+        <div class="analytics-label">Range Ratio</div>
+        <div class="analytics-value">${rangeRatio != null ? rangeRatio.toFixed(2) + '×' : '—'}</div>
+      </div>
+      <div class="analytics-item">
+        <div class="analytics-label">Quadrant</div>
+        <div style="margin-top:4px;">
+          ${quadrant ? `<span class="quadrant-badge ${quadrant.cls}">${quadrant.label}</span>` : '—'}
+        </div>
+      </div>
+    `;
+    analyticsCard.style.display = 'block';
+  } else {
+    analyticsGrid.innerHTML = `
+      <div style="grid-column:1/-1;color:var(--text-muted);font-size:13px;">
+        Requires 20+ days of data (currently ${allDays.length} days)
+      </div>
+    `;
+    analyticsCard.style.display = 'block';
+  }
 
   // Pivot Table
   const pivots = [
