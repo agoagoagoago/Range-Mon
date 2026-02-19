@@ -703,6 +703,74 @@ textarea::placeholder {
   .econ-event-data { display: none; }
 }
 
+/* Live Price Card */
+.live-price {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px 28px;
+  margin-bottom: 16px;
+}
+.live-price-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.live-price-left {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.live-price-contract {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.live-price-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+}
+.live-price-change {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 15px;
+  font-weight: 600;
+}
+.live-price-change.up { color: var(--accent-green); }
+.live-price-change.down { color: var(--accent-red); }
+.live-price-details {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.live-price-detail {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.live-price-detail span {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-secondary);
+  margin-left: 4px;
+}
+.live-price-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  text-align: right;
+}
+@media (max-width: 600px) {
+  .live-price { padding: 16px 18px; }
+  .live-price-value { font-size: 26px; }
+  .live-price-left { gap: 10px; }
+  .live-price-details { gap: 14px; }
+}
+
 /* Date navigation */
 .date-nav {
   display: flex;
@@ -1456,6 +1524,23 @@ MAR 26    6131.00    6172.50    6104.50    6131.50    +14.50    6131.50    15806
       </div>
     </div>
 
+    <!-- Live ES Price -->
+    <div class="live-price" id="livePrice" style="display:none;">
+      <div class="live-price-header">
+        <div class="live-price-left">
+          <span class="live-price-contract" id="lpContract">ES</span>
+          <span class="live-price-value" id="lpValue">—</span>
+          <span class="live-price-change" id="lpChange"></span>
+        </div>
+        <div class="live-price-details">
+          <span class="live-price-detail">H <span id="lpHigh">—</span></span>
+          <span class="live-price-detail">L <span id="lpLow">—</span></span>
+          <span class="live-price-detail">Vol <span id="lpVol">—</span></span>
+        </div>
+      </div>
+      <div class="live-price-meta" id="lpMeta"></div>
+    </div>
+
     <!-- Next Holiday -->
     <div class="next-holiday-banner" id="nextHolidayBanner" style="display:none;">
       <div class="next-holiday-icon">
@@ -1945,7 +2030,11 @@ setInterval(updateMarketClock, 1000);
 // ── Economic Calendar ──
 (function econCalInit() {
   const ECON_API_DIRECT = 'https://nfs.faireconomy.media/ff_calendar_thisweek.json';
-  const ECON_API_PROXY = 'https://api.codetabs.com/v1/proxy/?quest=https://nfs.faireconomy.media/ff_calendar_thisweek.json';
+  const ECON_API_PROXIES = [
+    'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://nfs.faireconomy.media/ff_calendar_thisweek.json'),
+    'https://corsproxy.io/?' + encodeURIComponent('https://nfs.faireconomy.media/ff_calendar_thisweek.json'),
+    'https://api.codetabs.com/v1/proxy/?quest=https://nfs.faireconomy.media/ff_calendar_thisweek.json'
+  ];
   const CACHE_KEY = 'econCal_data';
   const CACHE_TS_KEY = 'econCal_ts';
   const CACHE_TTL = 30 * 60 * 1000; // 30 min
@@ -2026,15 +2115,18 @@ setInterval(updateMarketClock, 1000);
     showLoading();
     try {
       let data;
-      try {
-        const res = await fetch(ECON_API_DIRECT);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        data = await res.json();
-      } catch (directErr) {
-        const res = await fetch(ECON_API_PROXY);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        data = await res.json();
+      const urls = [ECON_API_DIRECT].concat(ECON_API_PROXIES);
+      for (const url of urls) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const text = await res.text();
+          if (text.trim().charAt(0) !== '[') throw new Error('Not JSON array');
+          data = JSON.parse(text);
+          break;
+        } catch(e) { /* try next */ }
       }
+      if (!data) throw new Error('All sources failed');
       sessionStorage.setItem(CACHE_KEY, JSON.stringify(data));
       sessionStorage.setItem(CACHE_TS_KEY, String(Date.now()));
       render(data, false);
@@ -2049,6 +2141,94 @@ setInterval(updateMarketClock, 1000);
 
   fetchEconCal();
   setInterval(fetchEconCal, CACHE_TTL);
+})();
+
+// Live ES Price
+(function livePriceInit() {
+  const YAHOO_URL = 'https://query2.finance.yahoo.com/v8/finance/chart/ES=F?interval=1d&range=1d';
+  const WORKER_URL = 'https://yahoo-proxy.lookforadrian.workers.dev/?url=' + encodeURIComponent(YAHOO_URL);
+  const CACHE_KEY = 'livePrice_data';
+  const CACHE_TS_KEY = 'livePrice_ts';
+  const CACHE_TTL = 60 * 1000; // 60s
+  const REFRESH = 60 * 1000;
+
+  const card = document.getElementById('livePrice');
+  const elContract = document.getElementById('lpContract');
+  const elValue = document.getElementById('lpValue');
+  const elChange = document.getElementById('lpChange');
+  const elHigh = document.getElementById('lpHigh');
+  const elLow = document.getElementById('lpLow');
+  const elVol = document.getElementById('lpVol');
+  const elMeta = document.getElementById('lpMeta');
+
+  function fmt(n) {
+    return n != null ? Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
+  }
+
+  function fmtVol(n) {
+    if (n == null) return '—';
+    if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+    if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+    return String(n);
+  }
+
+  function renderPrice(d) {
+    elContract.textContent = d.contract || 'ES';
+    elValue.textContent = fmt(d.price);
+    const chg = d.price - d.prevClose;
+    const chgPct = d.prevClose ? (chg / d.prevClose * 100) : 0;
+    const sign = chg >= 0 ? '+' : '';
+    elChange.textContent = sign + fmt(chg) + ' (' + sign + chgPct.toFixed(2) + '%)';
+    elChange.className = 'live-price-change ' + (chg >= 0 ? 'up' : 'down');
+    elHigh.textContent = fmt(d.high);
+    elLow.textContent = fmt(d.low);
+    elVol.textContent = fmtVol(d.volume);
+    elMeta.textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    card.style.display = '';
+  }
+
+  function parseResponse(json) {
+    const result = json.chart && json.chart.result && json.chart.result[0];
+    if (!result) return null;
+    const m = result.meta;
+    return {
+      contract: m.symbol || 'ES=F',
+      price: m.regularMarketPrice,
+      prevClose: m.chartPreviousClose,
+      high: m.regularMarketDayHigh,
+      low: m.regularMarketDayLow,
+      volume: m.regularMarketVolume
+    };
+  }
+
+  async function fetchLivePrice() {
+    // Check cache
+    const cached = sessionStorage.getItem(CACHE_KEY);
+    const cachedTs = parseInt(sessionStorage.getItem(CACHE_TS_KEY) || '0', 10);
+    if (cached && (Date.now() - cachedTs < CACHE_TTL)) {
+      try { renderPrice(JSON.parse(cached)); return; } catch(e) { /* fall through */ }
+    }
+
+    try {
+      const res = await fetch(WORKER_URL);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const json = await res.json();
+      const d = parseResponse(json);
+      if (!d || d.price == null) throw new Error('No price data');
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify(d));
+      sessionStorage.setItem(CACHE_TS_KEY, String(Date.now()));
+      renderPrice(d);
+    } catch (err) {
+      // Use stale cache if available
+      if (cached) {
+        try { renderPrice(JSON.parse(cached)); elMeta.textContent += ' (stale)'; return; } catch(e) { /* ignore */ }
+      }
+      // Card stays hidden if no data available
+    }
+  }
+
+  fetchLivePrice();
+  setInterval(fetchLivePrice, REFRESH);
 })();
 
 function getLastWeekday() {
