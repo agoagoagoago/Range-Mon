@@ -1310,9 +1310,9 @@ MAR 26    6131.00    6172.50    6104.50    6131.50    +14.50    6131.50    15806
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Export CSV
           </button>
-          <button class="btn btn-secondary" onclick="publishData()" style="padding:7px 16px; font-size:13px;" title="Download data.json for deployment">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Publish Data
+          <button class="btn btn-secondary" onclick="deployData()" style="padding:7px 16px; font-size:13px;" title="Deploy data.json to GitHub">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5"/><polyline points="5 12 12 5 19 12"/></svg>
+            Deploy Data
           </button>
           <span class="day-count" id="dayCount2"></span>
         </div>
@@ -2105,22 +2105,71 @@ async function loadPublishedData() {
   }
 }
 
-function publishData() {
+async function deployData() {
   if (allDays.length === 0) {
-    showStatus('No data to publish.', 'error');
+    showStatus('No data to deploy.', 'error');
     return;
   }
-  const json = JSON.stringify(allDays, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'data.json';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showStatus(`data.json downloaded (${allDays.length} entries) — commit to GitHub to deploy.`, 'success');
+
+  let token = sessionStorage.getItem('gh_pat');
+  if (!token) {
+    token = prompt('Enter GitHub Personal Access Token (repo scope):');
+    if (!token) return;
+    sessionStorage.setItem('gh_pat', token.trim());
+    token = token.trim();
+  }
+
+  const repo = 'agoagoagoago/Range-Mon';
+  const path = 'data.json';
+  const apiUrl = `https://api.github.com/repos/${repo}/contents/${path}`;
+
+  showStatus('Deploying to GitHub...', 'success');
+
+  try {
+    // Get current file SHA (required for updates)
+    let sha = null;
+    const getResp = await fetch(apiUrl, {
+      headers: { 'Authorization': `token ${token}` }
+    });
+    if (getResp.ok) {
+      const fileInfo = await getResp.json();
+      sha = fileInfo.sha;
+    } else if (getResp.status === 401 || getResp.status === 403) {
+      sessionStorage.removeItem('gh_pat');
+      showStatus('Invalid or expired token. Try again.', 'error');
+      return;
+    }
+
+    // Commit updated data.json
+    const content = btoa(unescape(encodeURIComponent(JSON.stringify(allDays, null, 2))));
+    const body = {
+      message: `Update settlement data (${allDays.length} entries)`,
+      content: content,
+      branch: 'master'
+    };
+    if (sha) body.sha = sha;
+
+    const putResp = await fetch(apiUrl, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `token ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (putResp.ok) {
+      showStatus(`Deployed ${allDays.length} entries to GitHub. Render will redeploy shortly.`, 'success');
+    } else if (putResp.status === 401 || putResp.status === 403) {
+      sessionStorage.removeItem('gh_pat');
+      showStatus('Token rejected. Try again.', 'error');
+    } else {
+      const err = await putResp.json();
+      showStatus(`Deploy failed: ${err.message || putResp.status}`, 'error');
+    }
+  } catch (e) {
+    showStatus(`Deploy error: ${e.message}`, 'error');
+  }
 }
 
 // Block copy and right-click on history section
