@@ -903,6 +903,9 @@ textarea::placeholder {
 @media (max-width: 480px) {
   .analytics-grid { grid-template-columns: 1fr; }
 }
+.analytics-item {
+  position: relative;
+}
 .analytics-item .analytics-label {
   font-size: 11px;
   font-weight: 500;
@@ -910,6 +913,52 @@ textarea::placeholder {
   text-transform: uppercase;
   letter-spacing: 0.6px;
   margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.analytics-info-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1px solid var(--text-muted);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  font-family: 'Instrument Sans', sans-serif;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+.analytics-info-btn:hover {
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+}
+.analytics-tooltip {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  z-index: 10;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+}
+.analytics-tooltip.visible {
+  display: block;
 }
 .analytics-item .analytics-value {
   font-family: 'JetBrains Mono', monospace;
@@ -3140,6 +3189,22 @@ function quadrantLabel(rangeRatio, volRatio) {
   return { label: 'Quiet / Inside Day', cls: 'quiet' };
 }
 
+function toggleAnalyticsTooltip(btn) {
+  const item = btn.closest('.analytics-item');
+  const tooltip = item.querySelector('.analytics-tooltip');
+  const isVisible = tooltip.classList.contains('visible');
+  // Close all open tooltips first
+  document.querySelectorAll('.analytics-tooltip.visible').forEach(t => t.classList.remove('visible'));
+  if (!isVisible) tooltip.classList.add('visible');
+}
+
+// Close analytics tooltips when clicking outside
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.analytics-item')) {
+    document.querySelectorAll('.analytics-tooltip.visible').forEach(t => t.classList.remove('visible'));
+  }
+});
+
 function renderDashboard() {
   if (allDays.length === 0) {
     document.getElementById('expectedRange').style.display = 'none';
@@ -3312,24 +3377,28 @@ function renderDashboard() {
 
     analyticsGrid.innerHTML = `
       <div class="analytics-item">
-        <div class="analytics-label">Volume Ratio</div>
+        <div class="analytics-label">Volume Ratio <button class="analytics-info-btn" onclick="toggleAnalyticsTooltip(this)">?</button></div>
         <div class="analytics-value">${volRatio != null ? volRatio.toFixed(2) + '×' : '—'}</div>
         ${regime ? `<span class="regime-badge ${regime.cls}">${regime.label}</span>` : ''}
+        <div class="analytics-tooltip">Today's volume divided by the 20-day average volume. <strong>&lt;0.85</strong> = Low, <strong>0.85–1.15</strong> = Normal, <strong>1.15–1.40</strong> = High, <strong>&ge;1.40</strong> = Extreme.</div>
       </div>
       <div class="analytics-item">
-        <div class="analytics-label">Vol Percentile (60d)</div>
+        <div class="analytics-label">Vol Percentile (60d) <button class="analytics-info-btn" onclick="toggleAnalyticsTooltip(this)">?</button></div>
         <div class="analytics-value">${volPercentile}<span style="font-size:14px;font-weight:400;color:var(--text-muted)">th</span></div>
         <span class="vol-pct-bar"><span class="vol-pct-bar-fill" style="width:${volPercentile}%"></span></span>
+        <div class="analytics-tooltip">Percentile rank of today's volume compared to the last 60 trading sessions. 90th means volume was higher than 90% of recent sessions.</div>
       </div>
       <div class="analytics-item">
-        <div class="analytics-label">Range Ratio</div>
+        <div class="analytics-label">Range Ratio <button class="analytics-info-btn" onclick="toggleAnalyticsTooltip(this)">?</button></div>
         <div class="analytics-value">${rangeRatio != null ? rangeRatio.toFixed(2) + '×' : '—'}</div>
+        <div class="analytics-tooltip">Today's range (High − Low) divided by the 20-day average range. Values above 1.0 indicate wider-than-average range; below 1.0 indicate narrower.</div>
       </div>
       <div class="analytics-item">
-        <div class="analytics-label">Quadrant</div>
+        <div class="analytics-label">Quadrant <button class="analytics-info-btn" onclick="toggleAnalyticsTooltip(this)">?</button></div>
         <div style="margin-top:4px;">
           ${quadrant ? `<span class="quadrant-badge ${quadrant.cls}">${quadrant.label}</span>` : '—'}
         </div>
+        <div class="analytics-tooltip">Classifies the session by combining range and volume ratios. <strong>Breakout</strong> = high range + high volume. <strong>Low Participation</strong> = high range + low volume. <strong>Absorption</strong> = low range + high volume. <strong>Quiet</strong> = low range + low volume.</div>
       </div>
     `;
     analyticsCard.style.display = 'block';
