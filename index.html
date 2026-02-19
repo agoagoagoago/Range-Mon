@@ -1940,7 +1940,8 @@ setInterval(updateMarketClock, 1000);
 
 // ── Economic Calendar ──
 (function econCalInit() {
-  const ECON_API = 'https://nfs.faireconomy.media/ff_calendar_thisweek.json';
+  const ECON_API_DIRECT = 'https://nfs.faireconomy.media/ff_calendar_thisweek.json';
+  const ECON_API_PROXY = 'https://api.codetabs.com/v1/proxy/?quest=https://nfs.faireconomy.media/ff_calendar_thisweek.json';
   const CACHE_KEY = 'econCal_data';
   const CACHE_TS_KEY = 'econCal_ts';
   const CACHE_TTL = 30 * 60 * 1000; // 30 min
@@ -2020,9 +2021,16 @@ setInterval(updateMarketClock, 1000);
 
     showLoading();
     try {
-      const res = await fetch(ECON_API);
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
+      let data;
+      try {
+        const res = await fetch(ECON_API_DIRECT);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        data = await res.json();
+      } catch (directErr) {
+        const res = await fetch(ECON_API_PROXY);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        data = await res.json();
+      }
       sessionStorage.setItem(CACHE_KEY, JSON.stringify(data));
       sessionStorage.setItem(CACHE_TS_KEY, String(Date.now()));
       render(data, false);
