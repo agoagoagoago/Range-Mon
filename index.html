@@ -2111,15 +2111,9 @@ setInterval(updateMarketClock, 1000);
     showLoading();
     try {
       let data;
-      try {
-        const res = await fetch(ECON_API_DIRECT);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        data = await res.json();
-      } catch(e) {
-        const res = await fetch(ECON_API_WORKER);
-        if (!res.ok) throw new Error('HTTP ' + res.status);
-        data = await res.json();
-      }
+      const res = await fetch(ECON_API_WORKER);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      data = await res.json();
       sessionStorage.setItem(CACHE_KEY, JSON.stringify(data));
       sessionStorage.setItem(CACHE_TS_KEY, String(Date.now()));
       render(data, false);
