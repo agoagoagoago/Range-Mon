@@ -875,7 +875,7 @@ textarea::placeholder {
   padding: 24px 28px;
   margin-bottom: 24px;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
 }
 .analytics-card::before {
   content: '';
@@ -883,6 +883,7 @@ textarea::placeholder {
   top: 0; left: 0; right: 0;
   height: 2px;
   background: linear-gradient(90deg, var(--accent-cyan), var(--accent-purple));
+  border-radius: 14px 14px 0 0;
 }
 .analytics-card h3 {
   font-size: 14px;
@@ -943,10 +944,10 @@ textarea::placeholder {
 .analytics-tooltip {
   display: none;
   position: absolute;
-  top: 100%;
+  bottom: 100%;
   left: 0;
   right: 0;
-  margin-top: 8px;
+  margin-bottom: 8px;
   background: var(--bg-secondary);
   border: 1px solid var(--border);
   border-radius: 10px;
