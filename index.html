@@ -3381,18 +3381,18 @@ function renderDashboard() {
         <div class="analytics-label">Volume Ratio <button class="analytics-info-btn" onclick="toggleAnalyticsTooltip(this)">?</button></div>
         <div class="analytics-value">${volRatio != null ? volRatio.toFixed(2) + '×' : '—'}</div>
         ${regime ? `<span class="regime-badge ${regime.cls}">${regime.label}</span>` : ''}
-        <div class="analytics-tooltip">Today's volume divided by the 20-day average volume. <strong>&lt;0.85</strong> = Low, <strong>0.85–1.15</strong> = Normal, <strong>1.15–1.40</strong> = High, <strong>&ge;1.40</strong> = Extreme.</div>
+        <div class="analytics-tooltip">Yesterday's volume divided by the 20-day average volume. <strong>&lt;0.85</strong> = Low, <strong>0.85–1.15</strong> = Normal, <strong>1.15–1.40</strong> = High, <strong>&ge;1.40</strong> = Extreme.</div>
       </div>
       <div class="analytics-item">
         <div class="analytics-label">Vol Percentile (60d) <button class="analytics-info-btn" onclick="toggleAnalyticsTooltip(this)">?</button></div>
         <div class="analytics-value">${volPercentile}<span style="font-size:14px;font-weight:400;color:var(--text-muted)">th</span></div>
         <span class="vol-pct-bar"><span class="vol-pct-bar-fill" style="width:${volPercentile}%"></span></span>
-        <div class="analytics-tooltip">Percentile rank of today's volume compared to the last 60 trading sessions. 90th means volume was higher than 90% of recent sessions.</div>
+        <div class="analytics-tooltip">Percentile rank of yesterday's volume compared to the last 60 trading sessions. 90th means volume was higher than 90% of recent sessions.</div>
       </div>
       <div class="analytics-item">
         <div class="analytics-label">Range Ratio <button class="analytics-info-btn" onclick="toggleAnalyticsTooltip(this)">?</button></div>
         <div class="analytics-value">${rangeRatio != null ? rangeRatio.toFixed(2) + '×' : '—'}</div>
-        <div class="analytics-tooltip">Today's range (High − Low) divided by the 20-day average range. Values above 1.0 indicate wider-than-average range; below 1.0 indicate narrower.</div>
+        <div class="analytics-tooltip">Yesterday's range (High − Low) divided by the 20-day average range. Values above 1.0 indicate wider-than-average range; below 1.0 indicate narrower.</div>
       </div>
       <div class="analytics-item">
         <div class="analytics-label">Quadrant <button class="analytics-info-btn" onclick="toggleAnalyticsTooltip(this)">?</button></div>
