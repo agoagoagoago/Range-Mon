@@ -1310,6 +1310,10 @@ MAR 26    6131.00    6172.50    6104.50    6131.50    +14.50    6131.50    15806
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Export CSV
           </button>
+          <button class="btn btn-secondary" onclick="publishData()" style="padding:7px 16px; font-size:13px;" title="Download data.json for deployment">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Publish Data
+          </button>
           <span class="day-count" id="dayCount2"></span>
         </div>
       </div>
@@ -2084,8 +2088,40 @@ function validateWeekday(input) {
     }
   });
 
-  renderDashboard();
+  loadPublishedData();
 })();
+
+async function loadPublishedData() {
+  try {
+    const resp = await fetch('data.json');
+    if (!resp.ok) throw new Error('not found');
+    const data = await resp.json();
+    allDays = data;
+    allDays.sort((a, b) => new Date(a.date) - new Date(b.date));
+    renderDashboard();
+    if (adminMode) updateDayCount();
+  } catch (e) {
+    renderDashboard();
+  }
+}
+
+function publishData() {
+  if (allDays.length === 0) {
+    showStatus('No data to publish.', 'error');
+    return;
+  }
+  const json = JSON.stringify(allDays, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'data.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showStatus(`data.json downloaded (${allDays.length} entries) — commit to GitHub to deploy.`, 'success');
+}
 
 // Block copy and right-click on history section
 document.addEventListener('DOMContentLoaded', () => {
