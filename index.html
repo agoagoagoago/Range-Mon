@@ -769,8 +769,6 @@ textarea::placeholder {
   .live-price-value { font-size: 26px; }
   .live-price-left { gap: 10px; }
   .live-price-details { gap: 14px; }
-  .pivot-vol-cell { display: none; }
-  .pivot-table th:nth-child(4) { display: none; }
 }
 
 /* Date navigation */
@@ -924,37 +922,6 @@ textarea::placeholder {
 .pivot-table .resistance { color: var(--accent-green); }
 .pivot-table .support { color: var(--accent-red); }
 .pivot-table .pivot { color: var(--accent-amber); font-weight: 700; }
-.pivot-vol-cell {
-  width: 140px;
-}
-.pivot-vol-bar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.pivot-vol-bar-track {
-  flex: 1;
-  height: 6px;
-  background: rgba(30, 45, 69, 0.6);
-  border-radius: 3px;
-  overflow: hidden;
-}
-.pivot-vol-bar-fill {
-  height: 100%;
-  border-radius: 3px;
-  transition: width 0.4s ease;
-}
-.pivot-vol-bar-fill.resistance { background: var(--accent-green); }
-.pivot-vol-bar-fill.support { background: var(--accent-red); }
-.pivot-vol-bar-fill.pivot { background: var(--accent-amber); }
-.pivot-vol-bar-fill.current-price { background: var(--accent-cyan); }
-.pivot-vol-pct {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  color: var(--text-muted);
-  min-width: 32px;
-  text-align: right;
-}
 .pivot-table .current-price-row td {
   background: rgba(6, 182, 212, 0.08);
   border-top: 1px dashed var(--accent-cyan);
@@ -1682,7 +1649,6 @@ MAR 26    6131.00    6172.50    6104.50    6131.50    +14.50    6131.50    15806
             <th>Level</th>
             <th>Price</th>
             <th>Distance from Pivot</th>
-            <th>Volume Profile</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -2265,52 +2231,6 @@ setInterval(updateMarketClock, 1000);
 
   fetchLivePrice();
   setInterval(fetchLivePrice, REFRESH);
-})();
-
-// Volume Profile — intraday 5-min candles bucketed by price
-var volumeProfile = {}; // { priceLevel: totalVolume } — populated by fetchVolumeProfile
-(function volumeProfileInit() {
-  const YAHOO_5M = 'https://query2.finance.yahoo.com/v8/finance/chart/ES=F?interval=5m&range=1d';
-  const WORKER_URL = 'https://yahoo-proxy.lookforadrian.workers.dev/?url=' + encodeURIComponent(YAHOO_5M);
-  const VP_CACHE_KEY = 'volProfile_data';
-  const VP_CACHE_TS = 'volProfile_ts';
-  const VP_TTL = 5 * 60 * 1000; // 5 min
-
-  async function fetchVolumeProfile() {
-    const cached = sessionStorage.getItem(VP_CACHE_KEY);
-    const cachedTs = parseInt(sessionStorage.getItem(VP_CACHE_TS) || '0', 10);
-    if (cached && (Date.now() - cachedTs < VP_TTL)) {
-      try { volumeProfile = JSON.parse(cached); return; } catch(e) {}
-    }
-
-    try {
-      const res = await fetch(WORKER_URL);
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const json = await res.json();
-      const result = json.chart && json.chart.result && json.chart.result[0];
-      if (!result) return;
-      const q = result.indicators.quote[0];
-      const profile = {};
-      for (let i = 0; i < (result.timestamp || []).length; i++) {
-        const vol = q.volume[i] || 0;
-        if (!vol) continue;
-        // Use VWAP-like midpoint of candle as representative price, rounded to nearest 5 pts
-        const mid = ((q.high[i] || 0) + (q.low[i] || 0)) / 2;
-        const bucket = Math.round(mid / 5) * 5;
-        profile[bucket] = (profile[bucket] || 0) + vol;
-      }
-      volumeProfile = profile;
-      sessionStorage.setItem(VP_CACHE_KEY, JSON.stringify(profile));
-      sessionStorage.setItem(VP_CACHE_TS, String(Date.now()));
-      // Re-render dashboard to show volume bars
-      if (typeof renderDashboard === 'function' && typeof allDays !== 'undefined' && allDays.length > 0) {
-        renderDashboard();
-      }
-    } catch(e) { /* silent fail */ }
-  }
-
-  fetchVolumeProfile();
-  setInterval(fetchVolumeProfile, VP_TTL);
 })();
 
 function getLastWeekday() {
@@ -3285,38 +3205,18 @@ function renderDashboard() {
     pivotRows.sort((a, b) => b.value - a.value);
   }
 
-  // Compute volume near each pivot level (within ±5 pts)
-  const vpKeys = Object.keys(volumeProfile).map(Number);
-  const totalVP = vpKeys.reduce((s, k) => s + volumeProfile[k], 0);
-  function volNear(price) {
-    let vol = 0;
-    vpKeys.forEach(k => { if (Math.abs(k - price) <= 5) vol += volumeProfile[k]; });
-    return vol;
-  }
-  // Pre-compute volumes and find max for bar scaling
-  const pivotVols = pivotRows.map(p => volNear(p.value));
-  const maxPivotVol = Math.max(...pivotVols, 1);
-
-  const pivotBody = pivotRows.map((p, i) => {
-    const vol = pivotVols[i];
-    const pct = totalVP > 0 ? (vol / totalVP * 100) : 0;
-    const barWidth = totalVP > 0 ? (vol / maxPivotVol * 100) : 0;
-    const volCell = totalVP > 0
-      ? `<td class="pivot-vol-cell"><div class="pivot-vol-bar"><div class="pivot-vol-bar-track"><div class="pivot-vol-bar-fill ${p.cls}" style="width:${barWidth}%"></div></div><span class="pivot-vol-pct">${pct.toFixed(1)}%</span></div></td>`
-      : `<td class="pivot-vol-cell" style="color:var(--text-muted);font-size:11px">—</td>`;
+  const pivotBody = pivotRows.map(p => {
     if (p.isLive) {
       return `<tr class="current-price-row">
         <td class="label-cell">${p.label}</td>
         <td>${fmt(p.value)}</td>
         <td style="color: var(--accent-cyan)">${(p.value > pivot ? '+' : '') + fmt(p.value - pivot)}</td>
-        ${volCell}
       </tr>`;
     }
     return `<tr>
       <td class="label-cell">${p.label}</td>
       <td class="${p.cls}">${fmt(p.value)}</td>
       <td style="color: var(--text-muted)">${p.cls === 'pivot' ? '—' : (p.value > pivot ? '+' : '') + fmt(p.value - pivot)}</td>
-      ${volCell}
     </tr>`;
   }).join('');
   document.querySelector('#pivotTable tbody').innerHTML = pivotBody;
