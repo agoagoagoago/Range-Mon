@@ -587,6 +587,122 @@ textarea::placeholder {
   color: var(--accent-amber);
 }
 
+/* Economic Calendar */
+.econ-cal {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px 28px;
+  margin-bottom: 24px;
+}
+.econ-cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.econ-cal-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.econ-cal-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.econ-day-separator {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  padding: 10px 0 6px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+.econ-event {
+  display: grid;
+  grid-template-columns: 64px 18px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  border-left: 3px solid transparent;
+  padding-left: 10px;
+}
+.econ-event.impact-high { border-left-color: var(--accent-red); }
+.econ-event.impact-medium { border-left-color: var(--accent-amber); }
+.econ-event-time {
+  font-size: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-secondary);
+}
+.econ-impact-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  justify-self: center;
+}
+.econ-impact-dot.high { background: var(--accent-red); }
+.econ-impact-dot.medium { background: var(--accent-amber); }
+.econ-event-name {
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.econ-event-data {
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.econ-event.past .econ-event-time,
+.econ-event.past .econ-event-name,
+.econ-event.past .econ-event-data {
+  opacity: 0.4;
+}
+.econ-cal-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 12px 0;
+}
+.econ-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent-cyan);
+  border-radius: 50%;
+  animation: econ-spin 0.8s linear infinite;
+}
+@keyframes econ-spin { to { transform: rotate(360deg); } }
+.econ-cal-error {
+  font-size: 13px;
+  color: var(--accent-red);
+  background: rgba(239, 68, 68, 0.08);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+.econ-cal-empty {
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 12px 0;
+}
+@media (max-width: 600px) {
+  .econ-cal { padding: 16px; }
+  .econ-event { grid-template-columns: 54px 14px 1fr; }
+  .econ-event-data { display: none; }
+}
+
 /* Date navigation */
 .date-nav {
   display: flex;
@@ -1351,6 +1467,20 @@ MAR 26    6131.00    6172.50    6104.50    6131.50    +14.50    6131.50    15806
       </div>
     </div>
 
+    <!-- Economic Calendar -->
+    <div class="econ-cal" id="econCal">
+      <div class="econ-cal-header">
+        <div class="econ-cal-title">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Economic Calendar — High Impact USD
+        </div>
+        <div class="econ-cal-meta" id="econCalMeta"></div>
+      </div>
+      <div id="econCalBody">
+        <div class="econ-cal-loading"><div class="econ-spinner"></div> Loading…</div>
+      </div>
+    </div>
+
     <!-- Expected Range -->
     <div class="expected-range" id="expectedRange" style="display:none;">
       <div class="expected-range-label">Today Expected High-Low Range</div>
@@ -1807,6 +1937,107 @@ function updateMarketClock() {
 // Start market clock
 updateMarketClock();
 setInterval(updateMarketClock, 1000);
+
+// ── Economic Calendar ──
+(function econCalInit() {
+  const ECON_API = 'https://nfs.faireconomy.media/ff_calendar_thisweek.json';
+  const CACHE_KEY = 'econCal_data';
+  const CACHE_TS_KEY = 'econCal_ts';
+  const CACHE_TTL = 30 * 60 * 1000; // 30 min
+
+  const body = document.getElementById('econCalBody');
+  const meta = document.getElementById('econCalMeta');
+
+  function showLoading() {
+    body.innerHTML = '<div class="econ-cal-loading"><div class="econ-spinner"></div> Loading…</div>';
+  }
+
+  function showError(msg) {
+    body.innerHTML = '<div class="econ-cal-error">' + msg + '</div>';
+  }
+
+  function filterEvents(events) {
+    return events.filter(e => e.country === 'USD' && e.impact === 'High');
+  }
+
+  function render(events, stale) {
+    const filtered = filterEvents(events);
+    if (!filtered.length) {
+      body.innerHTML = '<div class="econ-cal-empty">No high-impact USD events this week.</div>';
+      meta.textContent = stale ? 'Cached (stale)' : '';
+      return;
+    }
+
+    const now = new Date();
+    // Group by day in CT (America/Chicago)
+    const groups = {};
+    filtered.forEach(ev => {
+      const d = new Date(ev.date);
+      const dayKey = d.toLocaleDateString('en-US', { timeZone: 'America/Chicago', weekday: 'short', month: 'short', day: 'numeric' });
+      if (!groups[dayKey]) groups[dayKey] = [];
+      groups[dayKey].push({ ...ev, _date: d });
+    });
+
+    let html = '';
+    Object.entries(groups).forEach(([day, evts]) => {
+      html += '<div class="econ-day-separator">' + day + '</div>';
+      evts.sort((a, b) => a._date - b._date).forEach(ev => {
+        const past = ev._date < now ? ' past' : '';
+        const impactClass = ev.impact === 'High' ? 'impact-high' : 'impact-medium';
+        const dotClass = ev.impact === 'High' ? 'high' : 'medium';
+        const time = ev._date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        const dataStr = [
+          ev.forecast ? 'F: ' + ev.forecast : '',
+          ev.previous ? 'P: ' + ev.previous : ''
+        ].filter(Boolean).join('  ');
+        html += '<div class="econ-event ' + impactClass + past + '">'
+          + '<span class="econ-event-time">' + time + '</span>'
+          + '<span class="econ-impact-dot ' + dotClass + '"></span>'
+          + '<span class="econ-event-name" title="' + ev.title.replace(/"/g, '&quot;') + '">' + ev.title + '</span>'
+          + (dataStr ? '<span class="econ-event-data">' + dataStr + '</span>' : '<span></span>')
+          + '</div>';
+      });
+    });
+
+    body.innerHTML = html;
+    if (stale) {
+      meta.textContent = 'Cached (stale)';
+      meta.style.color = 'var(--accent-amber)';
+    } else {
+      const ts = new Date();
+      meta.textContent = 'Updated ' + ts.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      meta.style.color = '';
+    }
+  }
+
+  async function fetchEconCal() {
+    // Check cache
+    const cached = sessionStorage.getItem(CACHE_KEY);
+    const cachedTs = parseInt(sessionStorage.getItem(CACHE_TS_KEY) || '0', 10);
+    if (cached && (Date.now() - cachedTs < CACHE_TTL)) {
+      try { render(JSON.parse(cached), false); return; } catch(e) { /* fall through */ }
+    }
+
+    showLoading();
+    try {
+      const res = await fetch(ECON_API);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify(data));
+      sessionStorage.setItem(CACHE_TS_KEY, String(Date.now()));
+      render(data, false);
+    } catch (err) {
+      // Use stale cache if available
+      if (cached) {
+        try { render(JSON.parse(cached), true); return; } catch(e) { /* fall through */ }
+      }
+      showError('Unable to load economic calendar. ' + err.message);
+    }
+  }
+
+  fetchEconCal();
+  setInterval(fetchEconCal, CACHE_TTL);
+})();
 
 function getLastWeekday() {
   const d = new Date();

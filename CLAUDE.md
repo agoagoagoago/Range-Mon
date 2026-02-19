@@ -36,3 +36,4 @@ Emini S&P 500 (ES) Range Monitoring Dashboard — a single-file HTML application
 
 ### 2026-02-19
 - **Added Exit Admin button**: Users can now exit admin mode back to the public dashboard. Added `.exit-admin-btn` CSS class, `deactivateAdmin()` function, and modified `activateAdmin()` to insert the exit button in the header next to the admin badge.
+- **Added Economic Calendar card**: Live high-impact USD events from Fair Economy API. Shows events grouped by day (CT), with past events dimmed. Uses sessionStorage caching (30-min TTL) with stale-cache fallback on network failure. Independent lifecycle from main dashboard rendering.
