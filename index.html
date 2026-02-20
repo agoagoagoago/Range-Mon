@@ -759,6 +759,76 @@ textarea::placeholder {
   .econ-event-data { display: none; }
 }
 
+/* COT Report */
+.cot-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px 28px;
+  margin-bottom: 32px;
+}
+.cot-card h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+.cot-meta {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-left: 8px;
+}
+.cot-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.cot-table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.cot-table td {
+  padding: 10px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(30, 45, 69, 0.5);
+  color: var(--text-secondary);
+}
+.cot-table tr:last-child td { border-bottom: none; }
+.cot-table tr:hover td { background: rgba(59, 130, 246, 0.03); }
+.cot-table td:first-child {
+  font-family: 'Instrument Sans', sans-serif;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.cot-net-positive { color: var(--accent-green); }
+.cot-net-negative { color: var(--accent-red); }
+.cot-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 12px 0;
+}
+.cot-error {
+  font-size: 13px;
+  color: var(--accent-red);
+  background: rgba(239, 68, 68, 0.08);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+@media (max-width: 600px) {
+  .cot-card { padding: 16px; }
+  .cot-table { font-size: 11px; }
+  .cot-table th, .cot-table td { padding: 8px 6px; }
+}
+
 /* Live Price Card */
 .live-price {
   background: var(--bg-card);
@@ -1895,6 +1965,14 @@ MAR 26    6131.00    6172.50    6104.50    6131.50    +14.50    6131.50    15806
       </div>
     </div>
 
+    <!-- COT Report -->
+    <div class="cot-card" id="cotCard">
+      <h3>COT Report — E-mini S&amp;P 500 <span class="cot-meta" id="cotMeta"></span></h3>
+      <div id="cotBody">
+        <div class="cot-loading"><div class="econ-spinner"></div> Loading…</div>
+      </div>
+    </div>
+
     <!-- History -->
     <div class="history-section">
       <h3>Settlement History (shows last 4 contracts only)</h3>
@@ -2355,6 +2433,164 @@ setInterval(updateMarketClock, 1000);
 
   fetchEconCal();
   setInterval(fetchEconCal, CACHE_TTL);
+})();
+
+// ── COT Report ──
+(function cotInit() {
+  const COT_API_DIRECT = 'https://publicreporting.cftc.gov/api/views/gpe5-46if/rows.json';
+  const COT_QUERY = '?$where=' + encodeURIComponent('cftc_contract_market_code="13874A"') + '&$limit=1&$order=' + encodeURIComponent('report_date_as_yyyy_mm_dd DESC');
+  const COT_URL = 'https://yahoo-proxy.lookforadrian.workers.dev/?url=' + encodeURIComponent(COT_API_DIRECT + COT_QUERY);
+  const CACHE_KEY = 'cotData';
+  const CACHE_TS_KEY = 'cotTs';
+  const CACHE_TTL = 30 * 60 * 1000;
+
+  const body = document.getElementById('cotBody');
+  const metaEl = document.getElementById('cotMeta');
+
+  function showLoading() {
+    body.innerHTML = '<div class="cot-loading"><div class="econ-spinner"></div> Loading…</div>';
+  }
+  function showError(msg) {
+    body.innerHTML = '<div class="cot-error">' + msg + '</div>';
+  }
+
+  function fmt(n) {
+    return Number(n).toLocaleString();
+  }
+  function pct(n, oi) {
+    return (n / oi * 100).toFixed(1) + '%';
+  }
+
+  function render(apiData, stale) {
+    try {
+      var cols = apiData.meta.view.columns;
+      var row = apiData.data[0];
+      // Build field map: column name -> index
+      var fm = {};
+      cols.forEach(function(c, i) { fm[c.fieldName] = i; });
+
+      var g = function(field) { return parseFloat(row[fm[field]]) || 0; };
+
+      var oi = g('open_interest_all');
+      var reportDate = row[fm['report_date_as_yyyy_mm_dd']];
+
+      var categories = [
+        {
+          name: 'Dealer / Intermediary',
+          long: g('dealer_positions_long_all'),
+          short: g('dealer_positions_short_all'),
+          spread: g('dealer_positions_spread_all'),
+          tradersL: row[fm['traders_dealer_long_all']] || '—',
+          tradersS: row[fm['traders_dealer_short_all']] || '—'
+        },
+        {
+          name: 'Asset Manager / Institutional',
+          long: g('asset_mgr_positions_long_all'),
+          short: g('asset_mgr_positions_short_all'),
+          spread: g('asset_mgr_positions_spread_all'),
+          tradersL: row[fm['traders_asset_mgr_long_all']] || '—',
+          tradersS: row[fm['traders_asset_mgr_short_all']] || '—'
+        },
+        {
+          name: 'Leveraged Funds',
+          long: g('lev_money_positions_long_all'),
+          short: g('lev_money_positions_short_all'),
+          spread: g('lev_money_positions_spread_all'),
+          tradersL: row[fm['traders_lev_money_long_all']] || '—',
+          tradersS: row[fm['traders_lev_money_short_all']] || '—'
+        },
+        {
+          name: 'Other Reportables',
+          long: g('other_rept_positions_long_all'),
+          short: g('other_rept_positions_short_all'),
+          spread: g('other_rept_positions_spread_all'),
+          tradersL: row[fm['traders_other_rept_long_all']] || '—',
+          tradersS: row[fm['traders_other_rept_short_all']] || '—'
+        }
+      ];
+
+      // Nonreportable = OI - sum of reportable
+      var totalReptLong = categories.reduce(function(s, c) { return s + c.long + c.spread; }, 0);
+      var totalReptShort = categories.reduce(function(s, c) { return s + c.short + c.spread; }, 0);
+      var nrLong = oi - totalReptLong;
+      var nrShort = oi - totalReptShort;
+
+      var html = '<table class="cot-table"><thead><tr>'
+        + '<th>Category</th><th>Long</th><th>Short</th><th>Spreading</th>'
+        + '<th>Net Position</th><th>% OI Long</th><th>% OI Short</th><th>Traders</th>'
+        + '</tr></thead><tbody>';
+
+      categories.forEach(function(c) {
+        var net = c.long - c.short;
+        var netClass = net >= 0 ? 'cot-net-positive' : 'cot-net-negative';
+        var netStr = (net >= 0 ? '+' : '') + fmt(net);
+        html += '<tr>'
+          + '<td>' + c.name + '</td>'
+          + '<td>' + fmt(c.long) + '</td>'
+          + '<td>' + fmt(c.short) + '</td>'
+          + '<td>' + fmt(c.spread) + '</td>'
+          + '<td class="' + netClass + '">' + netStr + '</td>'
+          + '<td>' + pct(c.long, oi) + '</td>'
+          + '<td>' + pct(c.short, oi) + '</td>'
+          + '<td>' + c.tradersL + ' / ' + c.tradersS + '</td>'
+          + '</tr>';
+      });
+
+      // Nonreportable row
+      var nrNet = nrLong - nrShort;
+      var nrNetClass = nrNet >= 0 ? 'cot-net-positive' : 'cot-net-negative';
+      html += '<tr>'
+        + '<td>Nonreportable (Retail)</td>'
+        + '<td>' + fmt(nrLong) + '</td>'
+        + '<td>' + fmt(nrShort) + '</td>'
+        + '<td>—</td>'
+        + '<td class="' + nrNetClass + '">' + (nrNet >= 0 ? '+' : '') + fmt(nrNet) + '</td>'
+        + '<td>' + pct(nrLong, oi) + '</td>'
+        + '<td>' + pct(nrShort, oi) + '</td>'
+        + '<td>—</td>'
+        + '</tr>';
+
+      html += '</tbody></table>';
+      body.innerHTML = html;
+
+      // Report date
+      if (reportDate) {
+        var rd = new Date(reportDate);
+        metaEl.textContent = (stale ? '(stale) ' : '') + 'Report: ' + rd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      }
+      if (stale) metaEl.style.color = 'var(--accent-amber)';
+      else metaEl.style.color = '';
+    } catch (e) {
+      showError('Error parsing COT data: ' + e.message);
+    }
+  }
+
+  async function fetchCOT() {
+    var cached = sessionStorage.getItem(CACHE_KEY);
+    var cachedTs = parseInt(sessionStorage.getItem(CACHE_TS_KEY) || '0', 10);
+    if (cached && (Date.now() - cachedTs < CACHE_TTL)) {
+      try { render(JSON.parse(cached), false); return; } catch(e) { /* fall through */ }
+    }
+
+    showLoading();
+    try {
+      var res = await fetch(COT_URL);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var data = await res.json();
+      if (!data.data || !data.data.length) throw new Error('No data returned');
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify(data));
+      sessionStorage.setItem(CACHE_TS_KEY, String(Date.now()));
+      render(data, false);
+    } catch (err) {
+      if (cached) {
+        try { render(JSON.parse(cached), true); return; } catch(e) { /* fall through */ }
+      }
+      showError('Unable to load COT report. ' + err.message);
+    }
+  }
+
+  fetchCOT();
+  setInterval(fetchCOT, CACHE_TTL);
 })();
 
 // Live ES Price
