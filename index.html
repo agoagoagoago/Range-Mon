@@ -4341,19 +4341,19 @@ function renderDashboard() {
 
       // Color by volume ratio
       const sma = volSMA[i];
-      let barColor;
+      let barTop, barBot;
       if (sma !== null) {
         const ratio = volumes[i] / sma;
-        if (ratio > 1.4) barColor = 'rgba(245, 158, 11, 0.8)';       // amber — high
-        else if (ratio < 0.85) barColor = 'rgba(99, 102, 241, 0.25)'; // dimmed — low
-        else barColor = 'rgba(99, 102, 241, 0.6)';                    // normal blue
+        if (ratio > 1.4) { barTop = 'rgba(245, 158, 11, 1)'; barBot = 'rgba(245, 158, 11, 0.5)'; }
+        else if (ratio < 0.85) { barTop = 'rgba(99, 102, 241, 0.5)'; barBot = 'rgba(99, 102, 241, 0.2)'; }
+        else { barTop = 'rgba(99, 102, 241, 0.9)'; barBot = 'rgba(99, 102, 241, 0.4)'; }
       } else {
-        barColor = 'rgba(99, 102, 241, 0.5)';
+        barTop = 'rgba(99, 102, 241, 0.8)'; barBot = 'rgba(99, 102, 241, 0.35)';
       }
 
       const grad = vc.createLinearGradient(x, y, x, vPad.top + vch);
-      grad.addColorStop(0, barColor);
-      grad.addColorStop(1, barColor.replace(/[\d.]+\)$/, '0.15)'));
+      grad.addColorStop(0, barTop);
+      grad.addColorStop(1, barBot);
       vc.fillStyle = grad;
 
       const r = Math.min(3, bw / 2);
