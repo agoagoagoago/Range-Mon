@@ -1356,10 +1356,30 @@ textarea::placeholder {
   user-select: none;
 }
 
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
 .history-section h3 {
   font-size: 16px;
   font-weight: 600;
-  margin-bottom: 20px;
+  margin-bottom: 0;
+}
+#contractSelect {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+}
+#contractSelect:focus {
+  border-color: var(--accent);
 }
 
 .history-table {
@@ -1975,7 +1995,10 @@ MAR 26    6131.00    6172.50    6104.50    6131.50    +14.50    6131.50    15806
 
     <!-- History -->
     <div class="history-section">
-      <h3>Settlement History (shows last 4 contracts only)</h3>
+      <div class="history-header">
+        <h3>Settlement History</h3>
+        <select id="contractSelect"></select>
+      </div>
       <table class="history-table" id="historyTable">
         <thead>
           <tr>
@@ -2791,6 +2814,7 @@ document.addEventListener('DOMContentLoaded', () => {
     hist.addEventListener('copy', (e) => e.preventDefault());
     hist.addEventListener('contextmenu', (e) => e.preventDefault());
   }
+  document.getElementById('contractSelect').addEventListener('change', renderHistory);
 });
 
 function activateAdmin() {
@@ -4082,15 +4106,26 @@ function renderDashboard() {
     dc.fillText('Avg: ' + mean.toFixed(1) + '  |  Median: ' + median.toFixed(1) + '  |  Days: ' + ranges.length, DW - dPad.right, 20);
   }
 
-  // History table — last 4 contracts only
+  // History table — contract dropdown
   const reversed = allDays.slice().reverse();
   const uniqueContracts = [];
   for (const d of reversed) {
     if (!uniqueContracts.includes(d.contract)) uniqueContracts.push(d.contract);
-    if (uniqueContracts.length === 4) break;
   }
-  const last4 = reversed.filter(d => uniqueContracts.includes(d.contract));
-  const historyBody = last4.map((d, i) => `
+  const sel = document.getElementById('contractSelect');
+  const prev = sel.value;
+  sel.innerHTML = uniqueContracts.map(c => `<option value="${c}">${fmtContract(c)}</option>`).join('')
+    + '<option value="__all__">All Contracts</option>';
+  sel.value = prev && [...sel.options].some(o => o.value === prev) ? prev : uniqueContracts[0] || '';
+  renderHistory();
+}
+
+function renderHistory() {
+  const sel = document.getElementById('contractSelect');
+  const filter = sel.value;
+  const reversed = allDays.slice().reverse();
+  const rows = filter === '__all__' ? reversed : reversed.filter(d => d.contract === filter);
+  const historyBody = rows.map((d, i) => `
     <tr class="${i === 0 ? 'highlight-row' : ''}">
       <td>${fmtDate(d.date)}</td>
       <td>${fmtContract(d.contract)}</td>
