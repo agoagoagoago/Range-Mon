@@ -4283,9 +4283,8 @@ function renderDashboard() {
     const minVol = 0;
     const volValRange = maxVol - minVol || 1;
 
-    const vBarW = vcw / volumes.length;
-    const vBarGap = Math.max(1, vBarW * 0.15);
-    const vToX = i => vPad.left + i * vBarW;
+    const vXStep = cw / (volumes.length - 1 || 1);
+    const vToX = i => vPad.left + i * vXStep;
     const vToY = v => vPad.top + vch - ((v - minVol) / volValRange) * vch;
 
     function fmtVolLabel(n) {
@@ -4319,7 +4318,7 @@ function renderDashboard() {
     vc.font = '9px JetBrains Mono, monospace';
     vc.textAlign = 'center';
     for (let i = 0; i < allDays.length; i += vLabelStep) {
-      const x = vToX(i) + vBarW / 2;
+      const x = vToX(i);
       const d = allDays[i].date.split('/');
       const label = `${d[1]}/${d[0]}/${d[2].slice(2)}`;
       vc.fillText(label, x, VH - vPad.bottom + 18);
@@ -4332,49 +4331,32 @@ function renderDashboard() {
       vc.stroke();
     }
 
-    // Volume bars
-    for (let i = 0; i < volumes.length; i++) {
-      const x = vToX(i) + vBarGap / 2;
-      const bw = vBarW - vBarGap;
-      const bh = (volumes[i] / volValRange) * vch;
-      const y = vPad.top + vch - bh;
-
-      // Color by volume ratio
-      const sma = volSMA[i];
-      let barTop, barBot;
-      if (sma !== null) {
-        const ratio = volumes[i] / sma;
-        if (ratio > 1.4) { barTop = 'rgba(245, 158, 11, 1)'; barBot = 'rgba(245, 158, 11, 0.5)'; }
-        else if (ratio < 0.85) { barTop = 'rgba(99, 102, 241, 0.5)'; barBot = 'rgba(99, 102, 241, 0.2)'; }
-        else { barTop = 'rgba(99, 102, 241, 0.9)'; barBot = 'rgba(99, 102, 241, 0.4)'; }
-      } else {
-        barTop = 'rgba(99, 102, 241, 0.8)'; barBot = 'rgba(99, 102, 241, 0.35)';
-      }
-
-      const grad = vc.createLinearGradient(x, y, x, vPad.top + vch);
-      grad.addColorStop(0, barTop);
-      grad.addColorStop(1, barBot);
-      vc.fillStyle = grad;
-
-      const r = Math.min(3, bw / 2);
-      vc.beginPath();
-      vc.moveTo(x + r, y);
-      vc.lineTo(x + bw - r, y);
-      vc.quadraticCurveTo(x + bw, y, x + bw, y + r);
-      vc.lineTo(x + bw, vPad.top + vch);
-      vc.lineTo(x, vPad.top + vch);
-      vc.lineTo(x, y + r);
-      vc.quadraticCurveTo(x, y, x + r, y);
-      vc.closePath();
-      vc.fill();
+    // Daily volume — filled area
+    vc.beginPath();
+    vc.moveTo(vToX(0), vToY(volumes[0]));
+    for (let i = 1; i < volumes.length; i++) {
+      vc.lineTo(vToX(i), vToY(volumes[i]));
     }
+    vc.strokeStyle = 'rgba(99, 102, 241, 0.5)';
+    vc.lineWidth = 1;
+    vc.stroke();
+
+    // Fill under volume line
+    vc.lineTo(vToX(volumes.length - 1), vToY(minVol));
+    vc.lineTo(vToX(0), vToY(minVol));
+    vc.closePath();
+    const volGrad = vc.createLinearGradient(0, vPad.top, 0, vPad.top + vch);
+    volGrad.addColorStop(0, 'rgba(99, 102, 241, 0.25)');
+    volGrad.addColorStop(1, 'rgba(99, 102, 241, 0.03)');
+    vc.fillStyle = volGrad;
+    vc.fill();
 
     // 20-day SMA line
     vc.beginPath();
     let vStarted = false;
     for (let i = 0; i < volSMA.length; i++) {
       if (volSMA[i] === null) continue;
-      const x = vToX(i) + vBarW / 2;
+      const x = vToX(i);
       const y = vToY(volSMA[i]);
       if (!vStarted) { vc.moveTo(x, y); vStarted = true; }
       else vc.lineTo(x, y);
@@ -4387,11 +4369,12 @@ function renderDashboard() {
     const vLegY = 12;
     vc.font = '11px Inter, sans-serif';
 
-    vc.fillStyle = 'rgba(99, 102, 241, 0.6)';
-    vc.fillRect(vPad.left, vLegY - 5, 12, 12);
+    vc.strokeStyle = 'rgba(99, 102, 241, 0.5)';
+    vc.lineWidth = 2;
+    vc.beginPath(); vc.moveTo(vPad.left, vLegY); vc.lineTo(vPad.left + 20, vLegY); vc.stroke();
     vc.fillStyle = '#94a3b8';
     vc.textAlign = 'left';
-    vc.fillText('Daily Volume', vPad.left + 18, vLegY + 4);
+    vc.fillText('Daily Volume', vPad.left + 26, vLegY + 4);
 
     vc.strokeStyle = '#22d3ee';
     vc.lineWidth = 2.5;
@@ -4399,15 +4382,10 @@ function renderDashboard() {
     vc.fillStyle = '#94a3b8';
     vc.fillText('20-Day Avg', vPad.left + 136, vLegY + 4);
 
-    vc.fillStyle = 'rgba(245, 158, 11, 0.8)';
-    vc.fillRect(vPad.left + 220, vLegY - 5, 12, 12);
-    vc.fillStyle = '#94a3b8';
-    vc.fillText('High Vol (>1.4×)', vPad.left + 238, vLegY + 4);
-
     // Latest SMA annotation
     const lastVolSMA = volSMA[volSMA.length - 1];
     if (lastVolSMA !== null) {
-      const lx = vToX(volSMA.length - 1) + vBarW / 2;
+      const lx = vToX(volSMA.length - 1);
       const ly = vToY(lastVolSMA);
       vc.beginPath();
       vc.arc(lx, ly, 4, 0, Math.PI * 2);
