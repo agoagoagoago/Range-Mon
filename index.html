@@ -2437,7 +2437,7 @@ setInterval(updateMarketClock, 1000);
 
 // ── COT Report ──
 (function cotInit() {
-  const COT_API_DIRECT = 'https://publicreporting.cftc.gov/api/views/gpe5-46if/rows.json';
+  const COT_API_DIRECT = 'https://publicreporting.cftc.gov/resource/gpe5-46if.json';
   const COT_QUERY = '?$where=' + encodeURIComponent('cftc_contract_market_code="13874A"') + '&$limit=1&$order=' + encodeURIComponent('report_date_as_yyyy_mm_dd DESC');
   const COT_URL = 'https://yahoo-proxy.lookforadrian.workers.dev/?url=' + encodeURIComponent(COT_API_DIRECT + COT_QUERY);
   const CACHE_KEY = 'cotData';
@@ -2457,63 +2457,16 @@ setInterval(updateMarketClock, 1000);
   function fmt(n) {
     return Number(n).toLocaleString();
   }
-  function pct(n, oi) {
-    return (n / oi * 100).toFixed(1) + '%';
-  }
 
-  function render(apiData, stale) {
+  function render(r, stale) {
     try {
-      var cols = apiData.meta.view.columns;
-      var row = apiData.data[0];
-      // Build field map: column name -> index
-      var fm = {};
-      cols.forEach(function(c, i) { fm[c.fieldName] = i; });
-
-      var g = function(field) { return parseFloat(row[fm[field]]) || 0; };
-
-      var oi = g('open_interest_all');
-      var reportDate = row[fm['report_date_as_yyyy_mm_dd']];
-
+      var oi = parseFloat(r.open_interest_all) || 1;
       var categories = [
-        {
-          name: 'Dealer / Intermediary',
-          long: g('dealer_positions_long_all'),
-          short: g('dealer_positions_short_all'),
-          spread: g('dealer_positions_spread_all'),
-          tradersL: row[fm['traders_dealer_long_all']] || '—',
-          tradersS: row[fm['traders_dealer_short_all']] || '—'
-        },
-        {
-          name: 'Asset Manager / Institutional',
-          long: g('asset_mgr_positions_long_all'),
-          short: g('asset_mgr_positions_short_all'),
-          spread: g('asset_mgr_positions_spread_all'),
-          tradersL: row[fm['traders_asset_mgr_long_all']] || '—',
-          tradersS: row[fm['traders_asset_mgr_short_all']] || '—'
-        },
-        {
-          name: 'Leveraged Funds',
-          long: g('lev_money_positions_long_all'),
-          short: g('lev_money_positions_short_all'),
-          spread: g('lev_money_positions_spread_all'),
-          tradersL: row[fm['traders_lev_money_long_all']] || '—',
-          tradersS: row[fm['traders_lev_money_short_all']] || '—'
-        },
-        {
-          name: 'Other Reportables',
-          long: g('other_rept_positions_long_all'),
-          short: g('other_rept_positions_short_all'),
-          spread: g('other_rept_positions_spread_all'),
-          tradersL: row[fm['traders_other_rept_long_all']] || '—',
-          tradersS: row[fm['traders_other_rept_short_all']] || '—'
-        }
+        { name: 'Dealer / Intermediary', long: r.dealer_positions_long_all, short: r.dealer_positions_short_all, spread: r.dealer_positions_spread_all, tL: r.traders_dealer_long_all, tS: r.traders_dealer_short_all },
+        { name: 'Asset Manager / Institutional', long: r.asset_mgr_positions_long, short: r.asset_mgr_positions_short, spread: r.asset_mgr_positions_spread, tL: r.traders_asset_mgr_long_all, tS: r.traders_asset_mgr_short_all },
+        { name: 'Leveraged Funds', long: r.lev_money_positions_long, short: r.lev_money_positions_short, spread: r.lev_money_positions_spread, tL: r.traders_lev_money_long_all, tS: r.traders_lev_money_short_all },
+        { name: 'Other Reportables', long: r.other_rept_positions_long, short: r.other_rept_positions_short, spread: r.other_rept_positions_spread, tL: r.traders_other_rept_long_all, tS: r.traders_other_rept_short }
       ];
-
-      // Nonreportable = OI - sum of reportable
-      var totalReptLong = categories.reduce(function(s, c) { return s + c.long + c.spread; }, 0);
-      var totalReptShort = categories.reduce(function(s, c) { return s + c.short + c.spread; }, 0);
-      var nrLong = oi - totalReptLong;
-      var nrShort = oi - totalReptShort;
 
       var html = '<table class="cot-table"><thead><tr>'
         + '<th>Category</th><th>Long</th><th>Short</th><th>Spreading</th>'
@@ -2521,48 +2474,65 @@ setInterval(updateMarketClock, 1000);
         + '</tr></thead><tbody>';
 
       categories.forEach(function(c) {
-        var net = c.long - c.short;
+        var l = parseFloat(c.long) || 0, s = parseFloat(c.short) || 0, sp = parseFloat(c.spread) || 0;
+        var net = l - s;
         var netClass = net >= 0 ? 'cot-net-positive' : 'cot-net-negative';
-        var netStr = (net >= 0 ? '+' : '') + fmt(net);
         html += '<tr>'
           + '<td>' + c.name + '</td>'
-          + '<td>' + fmt(c.long) + '</td>'
-          + '<td>' + fmt(c.short) + '</td>'
-          + '<td>' + fmt(c.spread) + '</td>'
-          + '<td class="' + netClass + '">' + netStr + '</td>'
-          + '<td>' + pct(c.long, oi) + '</td>'
-          + '<td>' + pct(c.short, oi) + '</td>'
-          + '<td>' + c.tradersL + ' / ' + c.tradersS + '</td>'
+          + '<td>' + fmt(l) + '</td>'
+          + '<td>' + fmt(s) + '</td>'
+          + '<td>' + fmt(sp) + '</td>'
+          + '<td class="' + netClass + '">' + (net >= 0 ? '+' : '') + fmt(net) + '</td>'
+          + '<td>' + (l / oi * 100).toFixed(1) + '%</td>'
+          + '<td>' + (s / oi * 100).toFixed(1) + '%</td>'
+          + '<td>' + (c.tL || '—') + ' / ' + (c.tS || '—') + '</td>'
           + '</tr>';
       });
 
-      // Nonreportable row
-      var nrNet = nrLong - nrShort;
-      var nrNetClass = nrNet >= 0 ? 'cot-net-positive' : 'cot-net-negative';
+      // Nonreportable row (provided directly by the API)
+      var nrL = parseFloat(r.nonrept_positions_long_all) || 0;
+      var nrS = parseFloat(r.nonrept_positions_short_all) || 0;
+      var nrNet = nrL - nrS;
+      var nrClass = nrNet >= 0 ? 'cot-net-positive' : 'cot-net-negative';
       html += '<tr>'
         + '<td>Nonreportable (Retail)</td>'
-        + '<td>' + fmt(nrLong) + '</td>'
-        + '<td>' + fmt(nrShort) + '</td>'
+        + '<td>' + fmt(nrL) + '</td>'
+        + '<td>' + fmt(nrS) + '</td>'
         + '<td>—</td>'
-        + '<td class="' + nrNetClass + '">' + (nrNet >= 0 ? '+' : '') + fmt(nrNet) + '</td>'
-        + '<td>' + pct(nrLong, oi) + '</td>'
-        + '<td>' + pct(nrShort, oi) + '</td>'
+        + '<td class="' + nrClass + '">' + (nrNet >= 0 ? '+' : '') + fmt(nrNet) + '</td>'
+        + '<td>' + (nrL / oi * 100).toFixed(1) + '%</td>'
+        + '<td>' + (nrS / oi * 100).toFixed(1) + '%</td>'
         + '<td>—</td>'
         + '</tr>';
 
       html += '</tbody></table>';
       body.innerHTML = html;
 
-      // Report date
-      if (reportDate) {
-        var rd = new Date(reportDate);
+      if (r.report_date_as_yyyy_mm_dd) {
+        var rd = new Date(r.report_date_as_yyyy_mm_dd);
         metaEl.textContent = (stale ? '(stale) ' : '') + 'Report: ' + rd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       }
-      if (stale) metaEl.style.color = 'var(--accent-amber)';
-      else metaEl.style.color = '';
+      metaEl.style.color = stale ? 'var(--accent-amber)' : '';
     } catch (e) {
       showError('Error parsing COT data: ' + e.message);
     }
+  }
+
+  // Extract only the fields we need for caching (~1KB instead of ~10KB)
+  function extract(r) {
+    var keys = ['open_interest_all','report_date_as_yyyy_mm_dd',
+      'dealer_positions_long_all','dealer_positions_short_all','dealer_positions_spread_all',
+      'asset_mgr_positions_long','asset_mgr_positions_short','asset_mgr_positions_spread',
+      'lev_money_positions_long','lev_money_positions_short','lev_money_positions_spread',
+      'other_rept_positions_long','other_rept_positions_short','other_rept_positions_spread',
+      'nonrept_positions_long_all','nonrept_positions_short_all',
+      'traders_dealer_long_all','traders_dealer_short_all',
+      'traders_asset_mgr_long_all','traders_asset_mgr_short_all',
+      'traders_lev_money_long_all','traders_lev_money_short_all',
+      'traders_other_rept_long_all','traders_other_rept_short'];
+    var out = {};
+    keys.forEach(function(k) { out[k] = r[k]; });
+    return out;
   }
 
   async function fetchCOT() {
@@ -2577,10 +2547,11 @@ setInterval(updateMarketClock, 1000);
       var res = await fetch(COT_URL);
       if (!res.ok) throw new Error('HTTP ' + res.status);
       var data = await res.json();
-      if (!data.data || !data.data.length) throw new Error('No data returned');
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify(data));
+      if (!Array.isArray(data) || !data.length) throw new Error('No data returned');
+      var slim = extract(data[0]);
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify(slim));
       sessionStorage.setItem(CACHE_TS_KEY, String(Date.now()));
-      render(data, false);
+      render(slim, false);
     } catch (err) {
       if (cached) {
         try { render(JSON.parse(cached), true); return; } catch(e) { /* fall through */ }
