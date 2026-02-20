@@ -4123,6 +4123,7 @@ function renderDashboard() {
 function renderHistory() {
   const sel = document.getElementById('contractSelect');
   const filter = sel.value;
+  const fmt = (v) => v.toFixed(2);
   const reversed = allDays.slice().reverse();
   const rows = filter === '__all__' ? reversed : reversed.filter(d => d.contract === filter);
   const historyBody = rows.map((d, i) => `
