@@ -1414,6 +1414,26 @@ textarea::placeholder {
   font-weight: 500;
 }
 
+.history-table-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+  .history-table th, .history-table td { padding: 8px; font-size: 11px; }
+}
+@media (max-width: 600px) {
+  .history-section { padding: 16px; }
+  .history-table th, .history-table td { padding: 6px; font-size: 10px; }
+  .history-table th:nth-child(3),
+  .history-table td:nth-child(3),
+  .history-table th:nth-child(6),
+  .history-table td:nth-child(6),
+  .history-table th:nth-child(8),
+  .history-table td:nth-child(8) { display: none; }
+  #contractSelect { font-size: 11px; padding: 4px 8px; }
+}
+
 .volume-badge {
   display: inline-flex;
   align-items: center;
@@ -1999,6 +2019,7 @@ MAR 26    6131.00    6172.50    6104.50    6131.50    +14.50    6131.50    15806
         <h3>Settlement History</h3>
         <select id="contractSelect"></select>
       </div>
+      <div class="history-table-wrap">
       <table class="history-table" id="historyTable">
         <thead>
           <tr>
@@ -2015,6 +2036,7 @@ MAR 26    6131.00    6172.50    6104.50    6131.50    +14.50    6131.50    15806
         </thead>
         <tbody></tbody>
       </table>
+      </div>
     </div>
   </div>
 
