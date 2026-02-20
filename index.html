@@ -758,10 +758,24 @@ textarea::placeholder {
   color: var(--text-secondary);
   margin-left: 4px;
 }
+.live-price-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 8px;
+}
+.live-price-range {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+.live-price-range span {
+  color: var(--text-secondary);
+  margin-left: 4px;
+}
 .live-price-meta {
   font-size: 11px;
   color: var(--text-muted);
-  margin-top: 8px;
   text-align: right;
 }
 @media (max-width: 600px) {
@@ -1684,7 +1698,10 @@ MAR 26    6131.00    6172.50    6104.50    6131.50    +14.50    6131.50    15806
           <span class="live-price-detail">Vol <span id="lpVol">—</span></span>
         </div>
       </div>
-      <div class="live-price-meta" id="lpMeta"></div>
+      <div class="live-price-footer">
+        <div class="live-price-range" id="lpRange"></div>
+        <div class="live-price-meta" id="lpMeta"></div>
+      </div>
     </div>
 
     <!-- Next Holiday -->
@@ -2299,6 +2316,7 @@ setInterval(updateMarketClock, 1000);
   const elLow = document.getElementById('lpLow');
   const elVol = document.getElementById('lpVol');
   const elMeta = document.getElementById('lpMeta');
+  const elRange = document.getElementById('lpRange');
 
   function fmt(n) {
     return n != null ? Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—';
@@ -2322,6 +2340,12 @@ setInterval(updateMarketClock, 1000);
     elHigh.textContent = fmt(d.high);
     elLow.textContent = fmt(d.low);
     elVol.textContent = fmtVol(d.volume);
+    if (d.high != null && d.low != null) {
+      const range = d.high - d.low;
+      elRange.innerHTML = 'Current Range = <span>' + fmt(range) + '</span>';
+    } else {
+      elRange.textContent = '';
+    }
     elMeta.textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
     card.style.display = '';
     // Re-render pivot table with updated price
