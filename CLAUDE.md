@@ -16,7 +16,7 @@ Emini S&P 500 (ES) Range Monitoring Dashboard — a single-file HTML application
 - Range comparison charts (canvas-based)
 - Rolling 20-day average range tracking
 - Range distribution histogram
-- Settlement history table (last 4 contracts)
+- Settlement history table with contract month dropdown
 - Admin mode (activated via `?admin` URL param or `Ctrl+Shift+A`)
 
 ## Architecture
@@ -33,6 +33,9 @@ Emini S&P 500 (ES) Range Monitoring Dashboard — a single-file HTML application
 - Exit Admin button is styled as a red pill button (`.exit-admin-btn`) in the header next to the admin badge
 
 ## Change Log
+
+### 2026-02-20
+- **Added contract month dropdown to Settlement History**: Replaced fixed "last 4 contracts" view with a `<select>` dropdown listing all contracts (newest first) plus "All Contracts". Defaults to latest contract. Extracted `renderHistory()` as standalone function called on dropdown change.
 
 ### 2026-02-19
 - **Added Exit Admin button**: Users can now exit admin mode back to the public dashboard. Added `.exit-admin-btn` CSS class, `deactivateAdmin()` function, and modified `activateAdmin()` to insert the exit button in the header next to the admin badge.
