@@ -2354,7 +2354,7 @@ setInterval(updateMarketClock, 1000);
     elVol.textContent = fmtVol(d.volume);
     if (d.high != null && d.low != null) {
       const range = d.high - d.low;
-      elRange.innerHTML = 'Current Range = <span>' + fmt(range) + '</span>';
+      elRange.innerHTML = 'Current H-L Range =<span>' + fmt(range) + '</span>';
     } else {
       elRange.textContent = '';
     }
