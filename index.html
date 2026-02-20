@@ -4241,8 +4241,7 @@ function renderDashboard() {
   }
   const sel = document.getElementById('contractSelect');
   const prev = sel.value;
-  sel.innerHTML = uniqueContracts.map(c => `<option value="${c}">${fmtContract(c)}</option>`).join('')
-    + '<option value="__all__">All Contracts</option>';
+  sel.innerHTML = uniqueContracts.map(c => `<option value="${c}">${fmtContract(c)}</option>`).join('');
   sel.value = prev && [...sel.options].some(o => o.value === prev) ? prev : uniqueContracts[0] || '';
   renderHistory();
 }
