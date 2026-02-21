@@ -1775,13 +1775,6 @@ textarea::placeholder {
   <!-- Input Section (hidden by default) -->
   <div id="input-tab" class="hidden">
     <div class="input-section">
-      <h2>Paste Settlement Row</h2>
-      <p>
-        Go to <a href="https://www.cmegroup.com/markets/equities/sp/e-mini-sandp500.settlements.html" target="_blank" style="color:var(--accent-blue)">CME E-mini S&P 500 Settlements</a>, 
-        select and copy <strong>one row</strong> from the table (the contract you want), then paste it below.<br>
-        Expected format: <code>Month  Open  High  Low  Last  Change  Settle  Volume  ...</code>
-      </p>
-
       <div class="date-input-row">
         <label for="tradeDate">Trading Date</label>
         <input type="date" id="tradeDate" onchange="validateWeekday(this)" />
