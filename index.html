@@ -2936,8 +2936,26 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('contractSelect').addEventListener('change', renderHistory);
 });
 
-function activateAdmin() {
+async function activateAdmin() {
   if (adminMode) return;
+
+  const password = prompt('Enter admin password:');
+  if (!password) return;
+
+  try {
+    const resp = await fetch('https://range-mon-api.onrender.com/api/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: password.trim() })
+    });
+    if (!resp.ok) {
+      showStatus('Invalid admin password.', 'error');
+      return;
+    }
+  } catch (e) {
+    showStatus(`Password check failed: ${e.message}`, 'error');
+    return;
+  }
   adminMode = true;
   document.getElementById('adminTabs').classList.remove('hidden');
   // Add admin badge and exit button to header
