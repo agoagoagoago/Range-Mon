@@ -34,6 +34,14 @@ Emini S&P 500 (ES) Range Monitoring Dashboard — a single-file HTML application
 
 ## Change Log
 
+### 2026-02-21
+- **Secured GitHub PAT with server-side proxy**: Created `api/` Express service on Render that proxies GitHub commits. Browser no longer touches the PAT — sends a deploy password to `POST /api/deploy` instead. Added `POST /api/verify` endpoint for password validation.
+- **Password-protected admin mode**: `activateAdmin()` now verifies deploy password server-side via `/api/verify` before granting access.
+- **Password-protected Export CSV**: `downloadCSV()` requires deploy password verified server-side on every click. No sessionStorage caching for any passwords.
+- **Prevented future date selection**: Trading Date input `max` attribute set to today's date on init.
+- **Removed paste instructions**: Removed "Paste Settlement Row" heading and CME instructions from Data Input section.
+- **Economic calendar shows next 7 days only**: Filters out past days, shows events from today through 7 days ahead.
+
 ### 2026-02-20
 - **Added Feedback form**: Public feedback section (Name, Email, Comments) using Formspree for email delivery. AJAX submit with success message, matching card styling, responsive at 600px.
 - **Made Settlement History table responsive**: Added `.history-table-wrap` scroll wrapper. At 768px, reduced cell padding/font-size. At 600px, hides Open/Last/Volume columns, compacts section padding and dropdown styling.
