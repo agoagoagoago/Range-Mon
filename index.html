@@ -1348,82 +1348,6 @@ textarea::placeholder {
   box-shadow: 0 1px 4px rgba(0,0,0,0.2);
 }
 
-/* Range bar visual */
-.range-bar-container {
-  margin-bottom: 24px;
-}
-
-.range-section {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 28px;
-  margin-bottom: 24px;
-}
-
-.range-section h3 {
-  font-size: 16px;
-  font-weight: 600;
-  margin-bottom: 20px;
-}
-
-.range-visual {
-  position: relative;
-  height: 80px;
-  margin: 20px 0;
-}
-
-.range-track {
-  position: absolute;
-  top: 30px;
-  left: 0;
-  right: 0;
-  height: 20px;
-  background: var(--bg-primary);
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.range-fill {
-  position: absolute;
-  top: 0;
-  height: 100%;
-  border-radius: 10px;
-}
-
-.range-fill.day1 {
-  background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan));
-  opacity: 0.9;
-}
-
-.range-fill.day5 {
-  background: linear-gradient(90deg, var(--accent-purple), var(--accent-blue));
-  opacity: 0.4;
-}
-
-.range-label-row {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 8px;
-}
-
-.range-label-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.range-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 3px;
-}
-
-.range-dot.day1-dot { background: var(--accent-cyan); }
-.range-dot.day5-dot { background: var(--accent-purple); opacity: 0.6; }
-
 /* Rolling Range Chart */
 .chart-section {
   margin-bottom: 32px;
@@ -2185,12 +2109,6 @@ MAR 26    6131.00    6172.50    6104.50    6131.50    +14.50    6131.50    15806
         </thead>
         <tbody></tbody>
       </table>
-    </div>
-
-    <!-- Range Comparison -->
-    <div class="range-section">
-      <h3>Range Comparison</h3>
-      <div id="rangeComparison"></div>
     </div>
 
     <!-- Rolling 20-Day Range Chart -->
@@ -4105,42 +4023,6 @@ function renderDashboard() {
     </tr>`;
   }).join('');
   document.querySelector('#pivotTable tbody').innerHTML = pivotBody;
-
-  // Range Comparison
-  const rangeComp = document.getElementById('rangeComparison');
-  const allValues = [prevLow, prevHigh, avg5Low, avg5High];
-  const globalMin = Math.min(...allValues) - 10;
-  const globalMax = Math.max(...allValues) + 10;
-  const scale = (v) => ((v - globalMin) / (globalMax - globalMin)) * 100;
-
-  rangeComp.innerHTML = `
-    <div style="margin-bottom: 24px;">
-      <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
-        <span style="font-size:13px;color:var(--text-secondary)">Previous Day Range</span>
-        <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--accent-cyan)">${fmt(prevLow)} — ${fmt(prevHigh)}</span>
-      </div>
-      <div style="position:relative;height:32px;background:var(--bg-primary);border-radius:14px;overflow:hidden;">
-        <div style="position:absolute;top:0;bottom:0;left:${scale(prevLow)}%;width:${scale(prevHigh)-scale(prevLow)}%;background:linear-gradient(90deg,var(--accent-blue),var(--accent-cyan));border-radius:14px;display:flex;align-items:center;justify-content:center;min-width:60px;">
-          <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,0.4);">${fmt(prevRange)} pts</span>
-        </div>
-      </div>
-    </div>
-    <div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
-        <span style="font-size:13px;color:var(--text-secondary)">5-Day Avg Range</span>
-        <span style="font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--accent-purple)">${fmt(avg5Low)} — ${fmt(avg5High)}</span>
-      </div>
-      <div style="position:relative;height:32px;background:var(--bg-primary);border-radius:14px;overflow:hidden;">
-        <div style="position:absolute;top:0;bottom:0;left:${scale(avg5Low)}%;width:${scale(avg5High)-scale(avg5Low)}%;background:linear-gradient(90deg,var(--accent-purple),rgba(139,92,246,0.5));border-radius:14px;display:flex;align-items:center;justify-content:center;min-width:60px;">
-          <span style="font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,0.4);">${fmt(avg5Range)} pts</span>
-        </div>
-      </div>
-    </div>
-    <div style="display:flex;gap:24px;margin-top:16px;">
-      <span class="range-label-item"><span class="range-dot day1-dot"></span> Previous Day</span>
-      <span class="range-label-item"><span class="range-dot day5-dot"></span> 5-Day Average</span>
-    </div>
-  `;
 
   // Rolling 20-Day Average Range Chart — pure canvas
   if (allDays.length >= 20) {
