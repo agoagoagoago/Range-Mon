@@ -2525,13 +2525,20 @@ setInterval(updateMarketClock, 1000);
   }
 
   function filterEvents(events) {
-    return events.filter(e => e.country === 'USD' && e.impact === 'High');
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const cutoff = new Date(todayStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+    return events.filter(e => {
+      if (e.country !== 'USD' || e.impact !== 'High') return false;
+      const d = new Date(e.date);
+      return d >= todayStart && d < cutoff;
+    });
   }
 
   function render(events, stale) {
     const filtered = filterEvents(events);
     if (!filtered.length) {
-      body.innerHTML = '<div class="econ-cal-empty">No high-impact USD events this week.</div>';
+      body.innerHTML = '<div class="econ-cal-empty">No high-impact USD events in the next 7 days.</div>';
       meta.textContent = stale ? 'Cached (stale)' : '';
       return;
     }
