@@ -2898,66 +2898,39 @@ async function loadPublishedData() {
 }
 
 async function deployData() {
+  const DEPLOY_API = 'https://range-mon-api.onrender.com/api/deploy';
+
   if (allDays.length === 0) {
     showStatus('No data to deploy.', 'error');
     return;
   }
 
-  let token = sessionStorage.getItem('gh_pat');
-  if (!token) {
-    token = prompt('Enter GitHub Personal Access Token (repo scope):');
-    if (!token) return;
-    sessionStorage.setItem('gh_pat', token.trim());
-    token = token.trim();
+  let password = sessionStorage.getItem('deploy_password');
+  if (!password) {
+    password = prompt('Enter deploy password:');
+    if (!password) return;
+    sessionStorage.setItem('deploy_password', password.trim());
+    password = password.trim();
   }
-
-  const repo = 'agoagoagoago/Range-Mon';
-  const path = 'data.json';
-  const apiUrl = `https://api.github.com/repos/${repo}/contents/${path}`;
 
   showStatus('Deploying to GitHub...', 'success');
 
   try {
-    // Get current file SHA (required for updates)
-    let sha = null;
-    const getResp = await fetch(apiUrl, {
-      headers: { 'Authorization': `token ${token}` }
-    });
-    if (getResp.ok) {
-      const fileInfo = await getResp.json();
-      sha = fileInfo.sha;
-    } else if (getResp.status === 401 || getResp.status === 403) {
-      sessionStorage.removeItem('gh_pat');
-      showStatus('Invalid or expired token. Try again.', 'error');
-      return;
-    }
-
-    // Commit updated data.json
-    const content = btoa(unescape(encodeURIComponent(JSON.stringify(allDays, null, 2))));
-    const body = {
-      message: `Update settlement data (${allDays.length} entries)`,
-      content: content,
-      branch: 'master'
-    };
-    if (sha) body.sha = sha;
-
-    const putResp = await fetch(apiUrl, {
-      method: 'PUT',
-      headers: {
-        'Authorization': `token ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(body)
+    const resp = await fetch(DEPLOY_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: allDays, password })
     });
 
-    if (putResp.ok) {
-      showStatus(`Deployed ${allDays.length} entries to GitHub. Render will redeploy shortly.`, 'success');
-    } else if (putResp.status === 401 || putResp.status === 403) {
-      sessionStorage.removeItem('gh_pat');
-      showStatus('Token rejected. Try again.', 'error');
+    const result = await resp.json();
+
+    if (resp.ok) {
+      showStatus(`Deployed ${result.entries} entries to GitHub. Render will redeploy shortly.`, 'success');
+    } else if (resp.status === 401) {
+      sessionStorage.removeItem('deploy_password');
+      showStatus('Invalid deploy password. Try again.', 'error');
     } else {
-      const err = await putResp.json();
-      showStatus(`Deploy failed: ${err.message || putResp.status}`, 'error');
+      showStatus(`Deploy failed: ${result.error || resp.status}`, 'error');
     }
   } catch (e) {
     showStatus(`Deploy error: ${e.message}`, 'error');
