@@ -34,6 +34,9 @@ Emini S&P 500 (ES) Range Monitoring Dashboard — a single-file HTML application
 
 ## Change Log
 
+### 2026-02-22
+- **Added Market News feed**: Finnhub-powered news card showing top 10 general market headlines with clickable links, source attribution, and relative timestamps. Server-side `GET /api/news` endpoint proxies Finnhub API (key stored as env var). Client uses sessionStorage cache with 1-hour TTL and stale-cache fallback, following the same IIFE pattern as COT Report.
+
 ### 2026-02-21
 - **Secured GitHub PAT with server-side proxy**: Created `api/` Express service on Render that proxies GitHub commits. Browser no longer touches the PAT — sends a deploy password to `POST /api/deploy` instead. Added `POST /api/verify` endpoint for password validation.
 - **Password-protected admin mode**: `activateAdmin()` now verifies deploy password server-side via `/api/verify` before granting access.

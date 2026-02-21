@@ -840,6 +840,67 @@ textarea::placeholder {
   .cot-table th, .cot-table td { padding: 8px 6px; }
 }
 
+/* Market News */
+.news-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px 28px;
+  margin-bottom: 16px;
+}
+.news-card h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 14px 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.news-meta {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.news-item {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(30, 45, 69, 0.5);
+}
+.news-item:last-child { border-bottom: none; }
+.news-item a {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  text-decoration: none;
+  line-height: 1.4;
+  display: block;
+}
+.news-item a:hover { color: var(--accent-blue); }
+.news-item-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+.news-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 12px 0;
+}
+.news-error {
+  font-size: 13px;
+  color: var(--accent-red);
+  background: rgba(239, 68, 68, 0.08);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+@media (max-width: 600px) {
+  .news-card { padding: 16px; }
+  .news-item a { font-size: 12px; }
+}
+
 /* Live Price Card */
 .live-price {
   background: var(--bg-card);
@@ -2121,6 +2182,14 @@ MAR 26    6131.00    6172.50    6104.50    6131.50    +14.50    6131.50    15806
       </div>
     </div>
 
+    <!-- Market News -->
+    <div class="news-card" id="newsCard">
+      <h3>Market News <span class="news-meta" id="newsMeta"></span></h3>
+      <div id="newsBody">
+        <div class="news-loading"><div class="econ-spinner"></div> Loading…</div>
+      </div>
+    </div>
+
     <!-- History -->
     <div class="history-section">
       <div class="history-header">
@@ -2742,6 +2811,76 @@ setInterval(updateMarketClock, 1000);
 
   fetchCOT();
   setInterval(fetchCOT, CACHE_TTL);
+})();
+
+// ── Market News ──
+(function newsInit() {
+  var NEWS_URL = 'https://range-mon-api.onrender.com/api/news';
+  var CACHE_KEY = 'newsData';
+  var CACHE_TS_KEY = 'newsTs';
+  var CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
+  var body = document.getElementById('newsBody');
+  var metaEl = document.getElementById('newsMeta');
+
+  function showLoading() {
+    body.innerHTML = '<div class="news-loading"><div class="econ-spinner"></div> Loading…</div>';
+  }
+  function showError(msg) {
+    body.innerHTML = '<div class="news-error">' + msg + '</div>';
+  }
+
+  function relativeTime(epoch) {
+    var diff = Math.floor((Date.now() / 1000) - epoch);
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    return Math.floor(diff / 86400) + 'd ago';
+  }
+
+  function render(articles, stale) {
+    if (!articles || !articles.length) {
+      showError('No news articles available.');
+      return;
+    }
+    var html = '';
+    articles.forEach(function(a) {
+      html += '<div class="news-item">'
+        + '<a href="' + a.url + '" target="_blank" rel="noopener">' + a.headline + '</a>'
+        + '<div class="news-item-meta">' + (a.source || '') + (a.datetime ? ' · ' + relativeTime(a.datetime) : '') + '</div>'
+        + '</div>';
+    });
+    body.innerHTML = html;
+    metaEl.textContent = stale ? '(stale)' : '';
+    metaEl.style.color = stale ? 'var(--accent-amber)' : '';
+  }
+
+  async function fetchNews() {
+    var cached = sessionStorage.getItem(CACHE_KEY);
+    var cachedTs = parseInt(sessionStorage.getItem(CACHE_TS_KEY) || '0', 10);
+    if (cached && (Date.now() - cachedTs < CACHE_TTL)) {
+      try { render(JSON.parse(cached), false); return; } catch(e) { /* fall through */ }
+    }
+
+    showLoading();
+    try {
+      var res = await fetch(NEWS_URL);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var data = await res.json();
+      if (!Array.isArray(data) || !data.length) throw new Error('No articles returned');
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify(data));
+      sessionStorage.setItem(CACHE_TS_KEY, String(Date.now()));
+      render(data, false);
+    } catch (err) {
+      if (cached) {
+        try { render(JSON.parse(cached), true); return; } catch(e) { /* fall through */ }
+      }
+      showError('Unable to load news. ' + err.message);
+    }
+  }
+
+  fetchNews();
+  setInterval(fetchNews, CACHE_TTL);
 })();
 
 // Live ES Price
