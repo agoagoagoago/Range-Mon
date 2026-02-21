@@ -983,6 +983,21 @@ textarea::placeholder {
   .live-price-details { gap: 14px; }
 }
 
+/* Positioning Statement */
+.positioning-statement {
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 20px;
+  text-transform: uppercase;
+}
+@media (max-width: 600px) {
+  .positioning-statement { font-size: 11px; letter-spacing: 0.03em; }
+}
+
 /* Date navigation */
 .date-nav {
   display: flex;
@@ -2002,6 +2017,8 @@ MAR 26    6131.00    6172.50    6104.50    6131.50    +14.50    6131.50    15806
 
   <!-- Dashboard Section -->
   <div id="dashboard-tab" class="dashboard visible">
+
+    <div class="positioning-statement">Data-Driven ES High–Low Ranges for Intraday Futures Traders</div>
 
     <!-- Date Nav -->
     <div class="date-nav">
