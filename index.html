@@ -2511,7 +2511,7 @@ setInterval(updateMarketClock, 1000);
   const ECON_API_WORKER = 'https://yahoo-proxy.lookforadrian.workers.dev/?url=' + encodeURIComponent(ECON_API_DIRECT);
   const CACHE_KEY = 'econCal_data';
   const CACHE_TS_KEY = 'econCal_ts';
-  const CACHE_TTL = 30 * 60 * 1000; // 30 min
+  const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
   const body = document.getElementById('econCalBody');
   const meta = document.getElementById('econCalMeta');
