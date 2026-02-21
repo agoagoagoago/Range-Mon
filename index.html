@@ -997,6 +997,19 @@ textarea::placeholder {
 @media (max-width: 600px) {
   .positioning-statement { font-size: 22px; }
 }
+.brand-narrative {
+  font-family: 'Instrument Sans', sans-serif;
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 1.6;
+  color: var(--text-muted);
+  text-align: center;
+  max-width: 640px;
+  margin: -12px auto 28px;
+}
+@media (max-width: 600px) {
+  .brand-narrative { font-size: 13px; }
+}
 
 /* Date navigation */
 .date-nav {
@@ -2019,6 +2032,7 @@ MAR 26    6131.00    6172.50    6104.50    6131.50    +14.50    6131.50    15806
   <div id="dashboard-tab" class="dashboard visible">
 
     <div class="positioning-statement">Data-Driven ES High–Low Ranges for Intraday Futures Traders</div>
+    <p class="brand-narrative">Most ES traders guess where price might stall or reverse. QuantRange uses historical intraday data to define where price statistically tends to reach its highs and lows — so traders stop guessing and start reacting.</p>
 
     <!-- Date Nav -->
     <div class="date-nav">
