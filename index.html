@@ -2866,7 +2866,9 @@ function validateWeekday(input) {
 // Initialize
 (function init() {
   // Set default date to last weekday
-  document.getElementById('tradeDate').value = getLastWeekday();
+  const tradeDateInput = document.getElementById('tradeDate');
+  tradeDateInput.value = getLastWeekday();
+  tradeDateInput.max = new Date().toISOString().split('T')[0];
 
   // Check for admin access: ?admin in URL or press Ctrl+Shift+A
   if (new URLSearchParams(window.location.search).has('admin')) {
