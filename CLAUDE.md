@@ -35,6 +35,7 @@ Emini S&P 500 (ES) Range Monitoring Dashboard — a single-file HTML application
 ## Change Log
 
 ### 2026-02-20
+- **Added Feedback form**: Public feedback section (Name, Email, Comments) using Formspree for email delivery. AJAX submit with success message, matching card styling, responsive at 600px.
 - **Made Settlement History table responsive**: Added `.history-table-wrap` scroll wrapper. At 768px, reduced cell padding/font-size. At 600px, hides Open/Last/Volume columns, compacts section padding and dropdown styling.
 - **Added contract month dropdown to Settlement History**: Replaced fixed "last 4 contracts" view with a `<select>` dropdown listing all contracts (newest first) plus "All Contracts". Defaults to latest contract. Extracted `renderHistory()` as standalone function called on dropdown change.
 
