@@ -2905,13 +2905,8 @@ async function deployData() {
     return;
   }
 
-  let password = sessionStorage.getItem('deploy_password');
-  if (!password) {
-    password = prompt('Enter deploy password:');
-    if (!password) return;
-    sessionStorage.setItem('deploy_password', password.trim());
-    password = password.trim();
-  }
+  const password = prompt('Enter deploy password:');
+  if (!password) return;
 
   showStatus('Deploying to GitHub...', 'success');
 
@@ -2919,7 +2914,7 @@ async function deployData() {
     const resp = await fetch(DEPLOY_API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data: allDays, password })
+      body: JSON.stringify({ data: allDays, password: password.trim() })
     });
 
     const result = await resp.json();
@@ -2927,7 +2922,6 @@ async function deployData() {
     if (resp.ok) {
       showStatus(`Deployed ${result.entries} entries to GitHub. Render will redeploy shortly.`, 'success');
     } else if (resp.status === 401) {
-      sessionStorage.removeItem('deploy_password');
       showStatus('Invalid deploy password. Try again.', 'error');
     } else {
       showStatus(`Deploy failed: ${result.error || resp.status}`, 'error');
@@ -3318,9 +3312,27 @@ function closeClear() {
   document.getElementById('clearModal').classList.add('hidden');
 }
 
-function downloadCSV() {
+async function downloadCSV() {
   if (allDays.length === 0) {
     showStatus('No data to export.', 'error');
+    return;
+  }
+
+  const password = prompt('Enter deploy password:');
+  if (!password) return;
+
+  try {
+    const resp = await fetch('https://range-mon-api.onrender.com/api/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: password.trim() })
+    });
+    if (!resp.ok) {
+      showStatus('Invalid deploy password.', 'error');
+      return;
+    }
+  } catch (e) {
+    showStatus(`Password check failed: ${e.message}`, 'error');
     return;
   }
 

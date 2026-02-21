@@ -18,6 +18,14 @@ app.use((req, res, next) => {
   next();
 });
 
+app.post('/api/verify', (req, res) => {
+  const { password } = req.body;
+  if (!password || password !== DEPLOY_PASSWORD) {
+    return res.status(401).json({ error: 'Invalid deploy password.' });
+  }
+  res.json({ ok: true });
+});
+
 app.post('/api/deploy', async (req, res) => {
   const { data, password } = req.body;
 
