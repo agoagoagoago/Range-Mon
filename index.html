@@ -2668,48 +2668,26 @@ setInterval(updateMarketClock, 1000);
     try {
       var oi = parseFloat(r.open_interest_all) || 1;
       var categories = [
-        { name: 'Dealer / Intermediary', long: r.dealer_positions_long_all, short: r.dealer_positions_short_all, spread: r.dealer_positions_spread_all, tL: r.traders_dealer_long_all, tS: r.traders_dealer_short_all },
-        { name: 'Asset Manager / Institutional', long: r.asset_mgr_positions_long, short: r.asset_mgr_positions_short, spread: r.asset_mgr_positions_spread, tL: r.traders_asset_mgr_long_all, tS: r.traders_asset_mgr_short_all },
-        { name: 'Leveraged Funds', long: r.lev_money_positions_long, short: r.lev_money_positions_short, spread: r.lev_money_positions_spread, tL: r.traders_lev_money_long_all, tS: r.traders_lev_money_short_all },
-        { name: 'Other Reportables', long: r.other_rept_positions_long, short: r.other_rept_positions_short, spread: r.other_rept_positions_spread, tL: r.traders_other_rept_long_all, tS: r.traders_other_rept_short }
+        { name: 'Dealer / Intermediary', long: r.dealer_positions_long_all, short: r.dealer_positions_short_all },
+        { name: 'Asset Manager / Institutional', long: r.asset_mgr_positions_long, short: r.asset_mgr_positions_short },
+        { name: 'Leveraged Funds', long: r.lev_money_positions_long, short: r.lev_money_positions_short }
       ];
 
       var html = '<table class="cot-table"><thead><tr>'
-        + '<th>Category</th><th>Long</th><th>Short</th><th>Spreading</th>'
-        + '<th>Net Position</th><th>% OI Long</th><th>% OI Short</th><th>Traders</th>'
+        + '<th>Category</th><th>Long</th><th>Short</th><th>Net Position</th>'
         + '</tr></thead><tbody>';
 
       categories.forEach(function(c) {
-        var l = parseFloat(c.long) || 0, s = parseFloat(c.short) || 0, sp = parseFloat(c.spread) || 0;
+        var l = parseFloat(c.long) || 0, s = parseFloat(c.short) || 0;
         var net = l - s;
         var netClass = net >= 0 ? 'cot-net-positive' : 'cot-net-negative';
         html += '<tr>'
           + '<td>' + c.name + '</td>'
           + '<td>' + fmt(l) + '</td>'
           + '<td>' + fmt(s) + '</td>'
-          + '<td>' + fmt(sp) + '</td>'
           + '<td class="' + netClass + '">' + (net >= 0 ? '+' : '') + fmt(net) + '</td>'
-          + '<td>' + (l / oi * 100).toFixed(1) + '%</td>'
-          + '<td>' + (s / oi * 100).toFixed(1) + '%</td>'
-          + '<td>' + (c.tL || '—') + ' / ' + (c.tS || '—') + '</td>'
           + '</tr>';
       });
-
-      // Nonreportable row (provided directly by the API)
-      var nrL = parseFloat(r.nonrept_positions_long_all) || 0;
-      var nrS = parseFloat(r.nonrept_positions_short_all) || 0;
-      var nrNet = nrL - nrS;
-      var nrClass = nrNet >= 0 ? 'cot-net-positive' : 'cot-net-negative';
-      html += '<tr>'
-        + '<td>Nonreportable (Retail)</td>'
-        + '<td>' + fmt(nrL) + '</td>'
-        + '<td>' + fmt(nrS) + '</td>'
-        + '<td>—</td>'
-        + '<td class="' + nrClass + '">' + (nrNet >= 0 ? '+' : '') + fmt(nrNet) + '</td>'
-        + '<td>' + (nrL / oi * 100).toFixed(1) + '%</td>'
-        + '<td>' + (nrS / oi * 100).toFixed(1) + '%</td>'
-        + '<td>—</td>'
-        + '</tr>';
 
       html += '</tbody></table>';
       body.innerHTML = html;
