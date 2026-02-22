@@ -877,6 +877,36 @@ textarea::placeholder {
   .cot-table th, .cot-table td { padding: 8px 6px; }
 }
 
+/* Weekly ES Price Chart */
+.weekly-price-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px 28px;
+  margin-bottom: 32px;
+}
+.weekly-price-card h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+.weekly-price-meta {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+  margin-left: 8px;
+}
+.weekly-price-chart-wrap {
+  width: 100%;
+  height: 260px;
+  margin-top: 8px;
+}
+.weekly-price-chart-wrap canvas { display: block; }
+@media (max-width: 600px) {
+  .weekly-price-card { padding: 16px; }
+  .weekly-price-chart-wrap { height: 200px; }
+}
+
 /* Market News */
 .news-card {
   background: var(--bg-card);
@@ -2176,6 +2206,14 @@ MAR 26    6131.00    6172.50    6104.50    6131.50    +14.50    6131.50    15806
       </div>
     </div>
 
+    <!-- Weekly ES Price Chart -->
+    <div class="weekly-price-card" id="weeklyPriceCard">
+      <h3>Weekly ES Price <span class="weekly-price-meta" id="weeklyPriceMeta"></span></h3>
+      <div id="weeklyPriceBody">
+        <div class="cot-loading"><div class="econ-spinner"></div> Loading…</div>
+      </div>
+    </div>
+
     <!-- Market News -->
     <div class="news-card" id="newsCard">
       <h3>Market News <span class="news-meta" id="newsMeta"></span></h3>
@@ -2940,6 +2978,225 @@ setInterval(updateMarketClock, 1000);
 
   fetchCOT();
   setInterval(fetchCOT, CACHE_TTL);
+})();
+
+// ── Weekly ES Price Chart ──
+(function weeklyPriceInit() {
+  var YAHOO_URL = 'https://query2.finance.yahoo.com/v8/finance/chart/ES=F?interval=1wk&range=3mo';
+  var WORKER_URL = 'https://yahoo-proxy.lookforadrian.workers.dev/?url=' + encodeURIComponent(YAHOO_URL);
+  var CACHE_KEY = 'weeklyPriceData';
+  var CACHE_TS_KEY = 'weeklyPriceTs';
+  var CACHE_TTL = 30 * 60 * 1000;
+
+  var body = document.getElementById('weeklyPriceBody');
+  var metaEl = document.getElementById('weeklyPriceMeta');
+
+  function showLoading() {
+    body.innerHTML = '<div class="cot-loading"><div class="econ-spinner"></div> Loading…</div>';
+  }
+  function showError(msg) {
+    body.innerHTML = '<div class="cot-error">' + msg + '</div>';
+  }
+
+  function fmtDate(ts) {
+    var d = new Date(ts);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  function fmtPrice(n) {
+    return Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function parseYahoo(data) {
+    var result = data.chart.result[0];
+    var timestamps = result.timestamp;
+    var quote = result.indicators.quote[0];
+    var candles = [];
+    for (var i = 0; i < timestamps.length; i++) {
+      if (quote.close[i] != null) {
+        candles.push({
+          ts: timestamps[i] * 1000,
+          open: quote.open[i],
+          high: quote.high[i],
+          low: quote.low[i],
+          close: quote.close[i]
+        });
+      }
+    }
+    return candles;
+  }
+
+  function getCotDates() {
+    try {
+      var raw = sessionStorage.getItem('cotData11');
+      if (!raw) return null;
+      var rows = JSON.parse(raw);
+      if (!Array.isArray(rows) || rows.length < 2) return null;
+      var dates = [];
+      for (var i = 0; i < rows.length - 1; i++) {
+        dates.push(new Date(rows[i].report_date_as_yyyy_mm_dd).getTime());
+      }
+      dates.reverse(); // chronological order
+      return dates;
+    } catch (e) { return null; }
+  }
+
+  function alignCandles(candles, cotDates) {
+    if (!cotDates || cotDates.length === 0) {
+      return candles.slice(-10);
+    }
+    var aligned = [];
+    cotDates.forEach(function(cotTs) {
+      var best = null, bestDiff = Infinity;
+      candles.forEach(function(c) {
+        var diff = Math.abs(c.ts - cotTs);
+        if (diff < bestDiff) { bestDiff = diff; best = c; }
+      });
+      if (best && bestDiff < 7 * 24 * 60 * 60 * 1000) {
+        aligned.push({ ts: cotTs, open: best.open, high: best.high, low: best.low, close: best.close });
+      }
+    });
+    return aligned.length > 0 ? aligned : candles.slice(-10);
+  }
+
+  function render(candles, stale) {
+    try {
+      var cotDates = getCotDates();
+      var data = alignCandles(candles, cotDates);
+      if (data.length < 2) { showError('Not enough weekly data'); return; }
+
+      var html = '<div class="weekly-price-chart-wrap"><canvas id="weeklyPriceChart"></canvas></div>';
+      body.innerHTML = html;
+
+      drawChart(data);
+      metaEl.textContent = (stale ? '(stale) ' : '') + 'Updated ' + new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+      metaEl.style.color = stale ? 'var(--accent-amber)' : '';
+    } catch (e) {
+      showError('Error rendering chart: ' + e.message);
+    }
+  }
+
+  function drawChart(data) {
+    var canvas = document.getElementById('weeklyPriceChart');
+    if (!canvas) return;
+    var container = canvas.parentElement;
+    var dpr = window.devicePixelRatio || 1;
+    var W = container.clientWidth;
+    var H = container.clientHeight;
+
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+
+    var ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    var n = data.length;
+    var pad = { top: 20, right: 20, bottom: 40, left: 70 };
+    var cw = W - pad.left - pad.right;
+    var ch = H - pad.top - pad.bottom;
+
+    var closes = data.map(function(d) { return d.close; });
+    var minVal = Math.min.apply(null, closes);
+    var maxVal = Math.max.apply(null, closes);
+    var range = maxVal - minVal || 1;
+    minVal -= range * 0.1;
+    maxVal += range * 0.1;
+    range = maxVal - minVal;
+
+    function xPos(i) { return pad.left + (i / (n - 1)) * cw; }
+    function yPos(v) { return pad.top + ch - ((v - minVal) / range) * ch; }
+
+    // Grid lines and y-axis labels
+    ctx.strokeStyle = 'rgba(148,163,184,0.12)';
+    ctx.lineWidth = 1;
+    ctx.fillStyle = 'rgba(148,163,184,0.6)';
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'right';
+    var steps = 5;
+    for (var i = 0; i <= steps; i++) {
+      var v = minVal + (range / steps) * i;
+      var y = yPos(v);
+      ctx.beginPath();
+      ctx.moveTo(pad.left, y);
+      ctx.lineTo(W - pad.right, y);
+      ctx.stroke();
+      ctx.fillText(fmtPrice(v), pad.left - 8, y + 4);
+    }
+
+    // X-axis labels
+    ctx.fillStyle = 'rgba(148,163,184,0.6)';
+    ctx.textAlign = 'center';
+    ctx.font = '10px JetBrains Mono, monospace';
+    data.forEach(function(d, i) {
+      ctx.fillText(fmtDate(d.ts), xPos(i), H - pad.bottom + 20);
+    });
+
+    // Draw line segments colored green/red
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+    for (var i = 1; i < n; i++) {
+      var prevClose = data[i - 1].close;
+      var curClose = data[i].close;
+      ctx.strokeStyle = curClose >= prevClose ? '#10b981' : '#ef4444';
+      ctx.beginPath();
+      ctx.moveTo(xPos(i - 1), yPos(prevClose));
+      ctx.lineTo(xPos(i), yPos(curClose));
+      ctx.stroke();
+    }
+
+    // Draw dots
+    data.forEach(function(d, i) {
+      var color;
+      if (i === 0) {
+        color = data.length > 1 && data[1].close >= d.close ? '#10b981' : '#ef4444';
+      } else {
+        color = d.close >= data[i - 1].close ? '#10b981' : '#ef4444';
+      }
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(xPos(i), yPos(d.close), 4, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // Price labels on dots
+    ctx.font = '10px JetBrains Mono, monospace';
+    ctx.textAlign = 'center';
+    data.forEach(function(d, i) {
+      ctx.fillStyle = 'rgba(148,163,184,0.7)';
+      ctx.fillText(fmtPrice(d.close), xPos(i), yPos(d.close) - 10);
+    });
+  }
+
+  async function fetchWeeklyPrice() {
+    var cached = sessionStorage.getItem(CACHE_KEY);
+    var cachedTs = parseInt(sessionStorage.getItem(CACHE_TS_KEY) || '0', 10);
+    if (cached && (Date.now() - cachedTs < CACHE_TTL)) {
+      try { render(JSON.parse(cached), false); return; } catch(e) { /* fall through */ }
+    }
+
+    showLoading();
+    try {
+      var res = await fetch(WORKER_URL);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      var data = await res.json();
+      var candles = parseYahoo(data);
+      if (candles.length < 2) throw new Error('Insufficient data');
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify(candles));
+      sessionStorage.setItem(CACHE_TS_KEY, String(Date.now()));
+      render(candles, false);
+    } catch (err) {
+      if (cached) {
+        try { render(JSON.parse(cached), true); return; } catch(e) { /* fall through */ }
+      }
+      showError('Unable to load weekly price data. ' + err.message);
+    }
+  }
+
+  fetchWeeklyPrice();
+  setInterval(fetchWeeklyPrice, CACHE_TTL);
 })();
 
 // ── Market News ──

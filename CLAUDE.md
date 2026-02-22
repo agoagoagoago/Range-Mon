@@ -34,6 +34,9 @@ Emini S&P 500 (ES) Range Monitoring Dashboard — a single-file HTML application
 
 ## Change Log
 
+### 2026-02-24
+- **Added Weekly ES Price chart**: Canvas line chart above Market News showing ~10 weekly ES closing prices from Yahoo Finance API (via `yahoo-proxy` worker, `interval=1wk&range=3mo`). Aligns x-axis dates with COT report dates from `sessionStorage`. Green/red line segments for up/down weeks, price labels on dots. Uses sessionStorage cache with 30-min TTL and stale-cache fallback.
+
 ### 2026-02-23
 - **Added 10-week COT net position change**: COT Report now fetches 11 weeks (`$limit=11`) to compute 10 week-over-week net position deltas. Scrollable table shows all 10 weeks with green/red coloring. Canvas line chart below plots the trends for Dealer (blue), Asset Manager (amber), and Leveraged Funds (purple) with zero line, grid, and legend.
 
