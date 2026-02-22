@@ -825,6 +825,37 @@ textarea::placeholder {
   color: var(--text-secondary);
   margin: 18px 0 10px;
 }
+.cot-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.cot-table-scroll .cot-table th,
+.cot-table-scroll .cot-table td { white-space: nowrap; }
+.cot-chart-wrap {
+  width: 100%;
+  height: 220px;
+  margin-top: 16px;
+}
+.cot-chart-wrap canvas { display: block; }
+.cot-legend {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.cot-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.cot-legend-swatch {
+  width: 12px;
+  height: 3px;
+  border-radius: 2px;
+  display: inline-block;
+}
 .cot-loading {
   display: flex;
   align-items: center;
@@ -2650,10 +2681,10 @@ setInterval(updateMarketClock, 1000);
 // ── COT Report ──
 (function cotInit() {
   const COT_API_DIRECT = 'https://publicreporting.cftc.gov/resource/gpe5-46if.json';
-  const COT_QUERY = '?$where=' + encodeURIComponent('cftc_contract_market_code="13874A"') + '&$limit=5&$order=' + encodeURIComponent('report_date_as_yyyy_mm_dd DESC');
+  const COT_QUERY = '?$where=' + encodeURIComponent('cftc_contract_market_code="13874A"') + '&$limit=11&$order=' + encodeURIComponent('report_date_as_yyyy_mm_dd DESC');
   const COT_URL = 'https://yahoo-proxy.lookforadrian.workers.dev/?url=' + encodeURIComponent(COT_API_DIRECT + COT_QUERY);
-  const CACHE_KEY = 'cotData5';
-  const CACHE_TS_KEY = 'cotTs5';
+  const CACHE_KEY = 'cotData11';
+  const CACHE_TS_KEY = 'cotTs11';
   const CACHE_TTL = 30 * 60 * 1000;
 
   const body = document.getElementById('cotBody');
@@ -2709,20 +2740,20 @@ setInterval(updateMarketClock, 1000);
       html += '</tbody></table>';
 
       // Weekly Net Position Change table (need at least 2 rows)
+      var cats = [
+        { name: 'Dealer / Intermediary', key: 'dealer', color: '#3b82f6' },
+        { name: 'Asset Mgr / Institutional', key: 'asset', color: '#f59e0b' },
+        { name: 'Leveraged Funds', key: 'lev', color: '#8b5cf6' }
+      ];
+
       if (rows.length >= 2) {
-        var numDeltas = Math.min(rows.length - 1, 4);
+        var numDeltas = Math.min(rows.length - 1, 10);
         html += '<div class="cot-change-label">Weekly Net Position Change</div>';
-        html += '<table class="cot-table"><thead><tr><th>Category</th>';
+        html += '<div class="cot-table-scroll"><table class="cot-table"><thead><tr><th>Category</th>';
         for (var w = 0; w < numDeltas; w++) {
           html += '<th>' + fmtDate(rows[w].report_date_as_yyyy_mm_dd) + '</th>';
         }
         html += '</tr></thead><tbody>';
-
-        var cats = [
-          { name: 'Dealer / Intermediary', key: 'dealer' },
-          { name: 'Asset Mgr / Institutional', key: 'asset' },
-          { name: 'Leveraged Funds', key: 'lev' }
-        ];
 
         cats.forEach(function(c) {
           html += '<tr><td>' + c.name + '</td>';
@@ -2734,10 +2765,23 @@ setInterval(updateMarketClock, 1000);
           html += '</tr>';
         });
 
-        html += '</tbody></table>';
+        html += '</tbody></table></div>';
+
+        // Line chart
+        html += '<div class="cot-chart-wrap"><canvas id="cotChangeChart"></canvas></div>';
+        html += '<div class="cot-legend">';
+        cats.forEach(function(c) {
+          html += '<span class="cot-legend-item"><span class="cot-legend-swatch" style="background:' + c.color + '"></span>' + c.name + '</span>';
+        });
+        html += '</div>';
       }
 
       body.innerHTML = html;
+
+      // Draw chart after DOM update
+      if (rows.length >= 2) {
+        drawCotChart(rows, cats);
+      }
 
       if (r.report_date_as_yyyy_mm_dd) {
         var rd = new Date(r.report_date_as_yyyy_mm_dd);
@@ -2747,6 +2791,113 @@ setInterval(updateMarketClock, 1000);
     } catch (e) {
       showError('Error parsing COT data: ' + e.message);
     }
+  }
+
+  function drawCotChart(rows, cats) {
+    var canvas = document.getElementById('cotChangeChart');
+    if (!canvas) return;
+    var container = canvas.parentElement;
+    var dpr = window.devicePixelRatio || 1;
+    var W = container.clientWidth;
+    var H = container.clientHeight;
+
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+
+    var ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    var numDeltas = Math.min(rows.length - 1, 10);
+    var pad = { top: 20, right: 20, bottom: 40, left: 65 };
+    var cw = W - pad.left - pad.right;
+    var ch = H - pad.top - pad.bottom;
+
+    // Compute deltas for all categories (chronological: oldest first)
+    var seriesData = cats.map(function(c) {
+      var deltas = [];
+      for (var w = 0; w < numDeltas; w++) {
+        deltas.push(netPos(rows[w], c.key) - netPos(rows[w + 1], c.key));
+      }
+      deltas.reverse();
+      return deltas;
+    });
+
+    // Date labels (chronological)
+    var labels = [];
+    for (var w = numDeltas - 1; w >= 0; w--) {
+      labels.push(fmtDate(rows[w].report_date_as_yyyy_mm_dd));
+    }
+
+    // Find min/max across all series
+    var allVals = seriesData.reduce(function(a, s) { return a.concat(s); }, []);
+    var minVal = Math.min.apply(null, allVals);
+    var maxVal = Math.max.apply(null, allVals);
+    var range = maxVal - minVal || 1;
+    minVal -= range * 0.1;
+    maxVal += range * 0.1;
+    range = maxVal - minVal;
+
+    function xPos(i) { return pad.left + (i / (numDeltas - 1)) * cw; }
+    function yPos(v) { return pad.top + ch - ((v - minVal) / range) * ch; }
+
+    // Grid lines and y-axis labels
+    ctx.strokeStyle = 'rgba(148,163,184,0.12)';
+    ctx.lineWidth = 1;
+    ctx.fillStyle = 'rgba(148,163,184,0.6)';
+    ctx.font = '11px JetBrains Mono, monospace';
+    ctx.textAlign = 'right';
+    var steps = 5;
+    for (var i = 0; i <= steps; i++) {
+      var v = minVal + (range / steps) * i;
+      var y = yPos(v);
+      ctx.beginPath();
+      ctx.moveTo(pad.left, y);
+      ctx.lineTo(W - pad.right, y);
+      ctx.stroke();
+      ctx.fillText(Math.round(v).toLocaleString(), pad.left - 8, y + 4);
+    }
+
+    // Zero line
+    if (minVal < 0 && maxVal > 0) {
+      ctx.strokeStyle = 'rgba(148,163,184,0.3)';
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(pad.left, yPos(0));
+      ctx.lineTo(W - pad.right, yPos(0));
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    // X-axis labels
+    ctx.fillStyle = 'rgba(148,163,184,0.6)';
+    ctx.textAlign = 'center';
+    ctx.font = '10px JetBrains Mono, monospace';
+    labels.forEach(function(lbl, i) {
+      ctx.fillText(lbl, xPos(i), H - pad.bottom + 20);
+    });
+
+    // Draw lines
+    seriesData.forEach(function(deltas, si) {
+      ctx.strokeStyle = cats[si].color;
+      ctx.lineWidth = 2;
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      deltas.forEach(function(v, i) {
+        if (i === 0) ctx.moveTo(xPos(i), yPos(v));
+        else ctx.lineTo(xPos(i), yPos(v));
+      });
+      ctx.stroke();
+
+      // Draw dots
+      ctx.fillStyle = cats[si].color;
+      deltas.forEach(function(v, i) {
+        ctx.beginPath();
+        ctx.arc(xPos(i), yPos(v), 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    });
   }
 
   // Extract only the fields we need for caching
