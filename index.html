@@ -2754,7 +2754,6 @@ setInterval(updateMarketClock, 1000);
     try {
       var r = rows[0];
       var categories = [
-        { name: 'Dealer / Intermediary', long: r.dealer_positions_long_all, short: r.dealer_positions_short_all },
         { name: 'Asset Manager / Institutional', long: r.asset_mgr_positions_long, short: r.asset_mgr_positions_short },
         { name: 'Leveraged Funds', long: r.lev_money_positions_long, short: r.lev_money_positions_short }
       ];
@@ -2779,7 +2778,6 @@ setInterval(updateMarketClock, 1000);
 
       // Weekly Net Position Change table (need at least 2 rows)
       var cats = [
-        { name: 'Dealer / Intermediary', key: 'dealer', color: '#3b82f6' },
         { name: 'Asset Mgr / Institutional', key: 'asset', color: '#f59e0b' },
         { name: 'Leveraged Funds', key: 'lev', color: '#8b5cf6' }
       ];
