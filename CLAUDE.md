@@ -34,6 +34,9 @@ Emini S&P 500 (ES) Range Monitoring Dashboard — a single-file HTML application
 
 ## Change Log
 
+### 2026-02-23
+- **Added 10-week COT net position change**: COT Report now fetches 11 weeks (`$limit=11`) to compute 10 week-over-week net position deltas. Scrollable table shows all 10 weeks with green/red coloring. Canvas line chart below plots the trends for Dealer (blue), Asset Manager (amber), and Leveraged Funds (purple) with zero line, grid, and legend.
+
 ### 2026-02-22
 - **Added Market News feed**: Finnhub-powered news card showing top 10 general market headlines with clickable links, source attribution, and relative timestamps. Server-side `GET /api/news` endpoint proxies Finnhub API (key stored as env var). Client uses sessionStorage cache with 1-hour TTL and stale-cache fallback, following the same IIFE pattern as COT Report.
 
