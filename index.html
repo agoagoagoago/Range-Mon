@@ -3459,7 +3459,7 @@ function validateWeekday(input) {
   }
 
   document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.shiftKey && e.key === 'A') {
+    if (e.ctrlKey && e.shiftKey && (e.code === 'KeyA' || e.key === 'A' || e.key === 'a')) {
       e.preventDefault();
       activateAdmin();
     }
