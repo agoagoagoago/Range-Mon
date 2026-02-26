@@ -528,6 +528,42 @@ textarea::placeholder {
   border-radius: 3px;
 }
 
+/* Expected Range Backtest */
+.backtest-card {
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px 24px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.backtest-card .backtest-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 8px;
+}
+
+.backtest-card .backtest-hit-rate {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.backtest-card .backtest-detail {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.backtest-card .backtest-detail span {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 600;
+}
+
 /* Historical High-Low */
 .historical-hl {
   display: flex;
@@ -2087,6 +2123,13 @@ MAR 26    6131.00    6172.50    6104.50    6131.50    +14.50    6131.50    15806
       <div class="expected-range-label">Today Expected High-Low Range</div>
       <div class="expected-range-value" id="expectedRangeValue">—</div>
       <div class="percentile-rank" id="percentileRank" style="display:none;"></div>
+    </div>
+
+    <!-- Expected Range Backtest -->
+    <div class="backtest-card" id="backtestCard" style="display:none;">
+      <div class="backtest-label">Expected Range Backtest</div>
+      <div class="backtest-hit-rate" id="backtestHitRate">—</div>
+      <div class="backtest-detail" id="backtestDetail"></div>
     </div>
 
     <!-- Historical Average & Median Daily Range -->
@@ -4207,6 +4250,7 @@ document.addEventListener('click', function(e) {
 function renderDashboard() {
   if (allDays.length === 0) {
     document.getElementById('expectedRange').style.display = 'none';
+    document.getElementById('backtestCard').style.display = 'none';
     document.getElementById('analyticsCard').style.display = 'none';
     document.getElementById('metricsGrid').innerHTML = `
       <div class="metric-card blue" style="grid-column: 1 / -1; text-align: center; padding: 48px 24px;">
@@ -4291,6 +4335,42 @@ function renderDashboard() {
       <span style="color:${pctColor}; font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">${pctLabel}</span>
     `;
     pctEl.style.display = 'flex';
+  }
+
+  // Expected Range Backtest
+  if (allDays.length >= 6) {
+    let hits = 0, total = 0, belowCount = 0, aboveCount = 0;
+    for (let i = 5; i < allDays.length; i++) {
+      const prev = allDays[i - 1];
+      const prevR = prev.high - prev.low;
+      const slice5 = allDays.slice(i - 5, i);
+      const avg5R = slice5.reduce((s, d) => s + (d.high - d.low), 0) / 5;
+      const expMin = Math.min(prevR, avg5R);
+      const expMax = Math.max(prevR, avg5R);
+      const actualR = allDays[i].high - allDays[i].low;
+      if (actualR >= expMin && actualR <= expMax) {
+        hits++;
+      } else if (actualR < expMin) {
+        belowCount++;
+      } else {
+        aboveCount++;
+      }
+      total++;
+    }
+    const hitPct = Math.round((hits / total) * 100);
+    let hitColor;
+    if (hitPct >= 50) hitColor = '#10b981';
+    else if (hitPct >= 35) hitColor = '#f59e0b';
+    else hitColor = '#ef4444';
+
+    document.getElementById('backtestHitRate').style.color = hitColor;
+    document.getElementById('backtestHitRate').textContent = `${hitPct}% Hit Rate`;
+    document.getElementById('backtestDetail').innerHTML =
+      `<span>${hits}</span> of <span>${total}</span> days fell within the expected range<br>` +
+      `<span style="color:#22d3ee">${belowCount}</span> below · <span style="color:#f59e0b">${aboveCount}</span> above`;
+    document.getElementById('backtestCard').style.display = 'block';
+  } else {
+    document.getElementById('backtestCard').style.display = 'none';
   }
 
   // Date nav
