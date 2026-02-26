@@ -4344,7 +4344,8 @@ function renderDashboard() {
     const p90Idx = Math.ceil(sorted.length * 0.9) - 1;
     const volMin = sorted[p10Idx];
     const volMax = sorted[p90Idx];
-    document.getElementById('expectedVolumeValue').textContent = `${fmtVol(volMin)} — ${fmtVol(volMax)}`;
+    const fv = n => n >= 1e6 ? (n/1e6).toFixed(1)+'M' : n >= 1e3 ? (n/1e3).toFixed(1)+'K' : String(n);
+    document.getElementById('expectedVolumeValue').textContent = `${fv(volMin)} — ${fv(volMax)}`;
     document.getElementById('expectedVolumeRange').style.display = 'block';
   }
 
