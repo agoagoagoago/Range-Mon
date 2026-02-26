@@ -4309,11 +4309,13 @@ function renderDashboard() {
   // Date nav
   const fmt = (v) => v.toFixed(2);
 
-  // Expected Range (10-day min/max of daily ranges)
-  const last10 = allDays.slice(-10);
-  const last10Ranges = last10.map(d => d.high - d.low);
-  const rangeMin = Math.min(...last10Ranges);
-  const rangeMax = Math.max(...last10Ranges);
+  // Expected Range (20-day mean ± 1 std dev of daily ranges)
+  const last20 = allDays.slice(-20);
+  const last20Ranges = last20.map(d => d.high - d.low);
+  const mean = last20Ranges.reduce((a, b) => a + b, 0) / last20Ranges.length;
+  const stdDev = Math.sqrt(last20Ranges.reduce((sum, r) => sum + (r - mean) ** 2, 0) / last20Ranges.length);
+  const rangeMin = Math.max(0, mean - stdDev);
+  const rangeMax = mean + stdDev;
   document.getElementById('expectedRangeValue').textContent = `${fmt(rangeMin)} — ${fmt(rangeMax)} pts`;
   document.getElementById('expectedRange').style.display = 'block';
 
@@ -4340,13 +4342,15 @@ function renderDashboard() {
   }
 
   // Expected Range Backtest
-  if (allDays.length >= 11) {
+  if (allDays.length >= 21) {
     let hits = 0, total = 0, belowCount = 0, aboveCount = 0;
-    for (let i = 10; i < allDays.length; i++) {
-      const slice10 = allDays.slice(i - 10, i);
-      const slice10Ranges = slice10.map(d => d.high - d.low);
-      const expMin = Math.min(...slice10Ranges);
-      const expMax = Math.max(...slice10Ranges);
+    for (let i = 20; i < allDays.length; i++) {
+      const window = allDays.slice(i - 20, i);
+      const windowRanges = window.map(d => d.high - d.low);
+      const wMean = windowRanges.reduce((a, b) => a + b, 0) / windowRanges.length;
+      const wStdDev = Math.sqrt(windowRanges.reduce((sum, r) => sum + (r - wMean) ** 2, 0) / windowRanges.length);
+      const expMin = Math.max(0, wMean - wStdDev);
+      const expMax = wMean + wStdDev;
       const actualR = allDays[i].high - allDays[i].low;
       if (actualR >= expMin && actualR <= expMax) {
         hits++;
