@@ -4309,9 +4309,10 @@ function renderDashboard() {
   // Date nav
   const fmt = (v) => v.toFixed(2);
 
-  // Expected Range
-  const rangeMin = Math.min(prevRange, avg5Range);
-  const rangeMax = Math.max(prevRange, avg5Range);
+  // Expected Range (5-day min/max of daily ranges)
+  const last5Ranges = last5.map(d => d.high - d.low);
+  const rangeMin = Math.min(...last5Ranges);
+  const rangeMax = Math.max(...last5Ranges);
   document.getElementById('expectedRangeValue').textContent = `${fmt(rangeMin)} — ${fmt(rangeMax)} pts`;
   document.getElementById('expectedRange').style.display = 'block';
 
@@ -4341,12 +4342,10 @@ function renderDashboard() {
   if (allDays.length >= 6) {
     let hits = 0, total = 0, belowCount = 0, aboveCount = 0;
     for (let i = 5; i < allDays.length; i++) {
-      const prev = allDays[i - 1];
-      const prevR = prev.high - prev.low;
       const slice5 = allDays.slice(i - 5, i);
-      const avg5R = slice5.reduce((s, d) => s + (d.high - d.low), 0) / 5;
-      const expMin = Math.min(prevR, avg5R);
-      const expMax = Math.max(prevR, avg5R);
+      const slice5Ranges = slice5.map(d => d.high - d.low);
+      const expMin = Math.min(...slice5Ranges);
+      const expMax = Math.max(...slice5Ranges);
       const actualR = allDays[i].high - allDays[i].low;
       if (actualR >= expMin && actualR <= expMax) {
         hits++;
