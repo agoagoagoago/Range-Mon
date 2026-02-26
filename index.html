@@ -498,6 +498,17 @@ textarea::placeholder {
   -webkit-text-fill-color: transparent;
 }
 
+.expected-volume-range {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(251, 191, 36, 0.08));
+  border-color: rgba(245, 158, 11, 0.2);
+}
+.expected-volume-value {
+  background: linear-gradient(135deg, var(--accent-amber), #fbbf24) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  font-size: 26px !important;
+}
+
 .percentile-rank {
   margin-top: 10px;
   font-size: 13px;
@@ -2123,6 +2134,12 @@ MAR 26    6131.00    6172.50    6104.50    6131.50    +14.50    6131.50    15806
       <div class="expected-range-label">Today Expected High-Low Range</div>
       <div class="expected-range-value" id="expectedRangeValue">—</div>
       <div class="percentile-rank" id="percentileRank" style="display:none;"></div>
+    </div>
+
+    <!-- Expected Volume Range -->
+    <div class="expected-range expected-volume-range" id="expectedVolumeRange" style="display:none;">
+      <div class="expected-range-label" style="color: var(--accent-amber);">Today Expected Volume Range</div>
+      <div class="expected-range-value expected-volume-value" id="expectedVolumeValue">—</div>
     </div>
 
     <!-- Expected Range Backtest -->
@@ -4319,6 +4336,18 @@ function renderDashboard() {
   document.getElementById('expectedRangeValue').textContent = `${fmt(rangeMin)} — ${fmt(rangeMax)} pts`;
   document.getElementById('expectedRange').style.display = 'block';
 
+  // Expected Volume Range (20-day P10/P90 percentile)
+  const last20Vol = allDays.slice(-20).map(d => d.volume || 0).filter(v => v > 0);
+  if (last20Vol.length >= 10) {
+    const sorted = [...last20Vol].sort((a, b) => a - b);
+    const p10Idx = Math.floor(sorted.length * 0.1);
+    const p90Idx = Math.ceil(sorted.length * 0.9) - 1;
+    const volMin = sorted[p10Idx];
+    const volMax = sorted[p90Idx];
+    document.getElementById('expectedVolumeValue').textContent = `${fmtVol(volMin)} — ${fmtVol(volMax)}`;
+    document.getElementById('expectedVolumeRange').style.display = 'block';
+  }
+
   // Percentile ranking
   if (allDays.length >= 5) {
     const allRanges = allDays.map(d => d.high - d.low);
@@ -4375,6 +4404,33 @@ function renderDashboard() {
     document.getElementById('backtestCard').style.display = 'block';
   } else {
     document.getElementById('backtestCard').style.display = 'none';
+  }
+
+  // Expected Volume Range Backtest
+  if (allDays.length >= 21) {
+    let vHits = 0, vTotal = 0, vBelow = 0, vAbove = 0;
+    for (let i = 20; i < allDays.length; i++) {
+      const wVols = allDays.slice(i - 20, i).map(d => d.volume || 0).filter(v => v > 0);
+      if (wVols.length < 10) continue;
+      const sorted = [...wVols].sort((a, b) => a - b);
+      const p10Idx = Math.floor(sorted.length * 0.1);
+      const p90Idx = Math.ceil(sorted.length * 0.9) - 1;
+      const vExpMin = sorted[p10Idx];
+      const vExpMax = sorted[p90Idx];
+      const actualVol = allDays[i].volume || 0;
+      if (actualVol <= 0) continue;
+      if (actualVol >= vExpMin && actualVol <= vExpMax) vHits++;
+      else if (actualVol < vExpMin) vBelow++;
+      else vAbove++;
+      vTotal++;
+    }
+    if (vTotal > 0) {
+      const vHitPct = Math.round((vHits / vTotal) * 100);
+      const volBacktest = document.getElementById('backtestDetail');
+      if (volBacktest) {
+        volBacktest.innerHTML += `<br><span style="color:var(--accent-amber)">Volume:</span> <span>${vHitPct}%</span> hit rate · <span style="color:#22d3ee">${vBelow}</span> below · <span style="color:#f59e0b">${vAbove}</span> above`;
+      }
+    }
   }
 
   // Date nav
