@@ -1898,7 +1898,7 @@ textarea::placeholder {
     </div>
   </div>
 
-  <!-- Tabs (hidden by default, revealed with ?admin or Ctrl+Shift+A) -->
+  <!-- Tabs (hidden by default, revealed with ?admin or Ctrl+Shift+Q) -->
   <div class="tabs hidden" id="adminTabs">
     <button class="tab" onclick="showTab('input')">Data Input</button>
     <button class="tab active" onclick="showTab('dashboard')">Dashboard</button>
@@ -3453,13 +3453,13 @@ function validateWeekday(input) {
   tradeDateInput.value = getLastWeekday();
   tradeDateInput.max = new Date().toISOString().split('T')[0];
 
-  // Check for admin access: ?admin in URL or press Ctrl+Shift+A
+  // Check for admin access: ?admin in URL or press Ctrl+Shift+Q
   if (new URLSearchParams(window.location.search).has('admin')) {
     activateAdmin();
   }
 
   document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.shiftKey && (e.code === 'KeyA' || e.key === 'A' || e.key === 'a')) {
+    if (e.ctrlKey && e.shiftKey && (e.code === 'KeyQ' || e.key === 'Q' || e.key === 'q')) {
       e.preventDefault();
       activateAdmin();
     }
