@@ -3539,11 +3539,11 @@ async function activateAdmin() {
       body: JSON.stringify({ password: password.trim() })
     });
     if (!resp.ok) {
-      showStatus('Invalid admin password.', 'error');
+      alert('Invalid admin password.');
       return;
     }
   } catch (e) {
-    showStatus(`Password check failed: ${e.message}`, 'error');
+    alert('Password check failed: ' + e.message + '\nThe API server may be waking up — try again in 30 seconds.');
     return;
   }
   adminMode = true;
